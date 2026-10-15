@@ -32,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("setup", help="set this machine up: find the roots, write the config, build the cache")
     p.add_argument("--no-glossary", action="store_true", help="skip building the glossary")
+    p.add_argument("--no-index", action="store_true", help="skip indexing the active playset")
     p.set_defaults(func=cmd_setup)
 
     p = sub.add_parser("doctor", help="check what is ready and what is not, and why")
@@ -104,7 +105,12 @@ def cmd_setup(args, cfg: paths.Config) -> int:
     for name in paths.ROOT_NAMES:
         if cfg.get("roots", name):
             found[name] = Path(cfg.get("roots", name))
-    written = paths.write_user_config(found, cfg.values.get("lang"))
+    user_cfg = {}
+    if paths.user_config_path().is_file():
+        import tomllib
+
+        user_cfg = tomllib.loads(paths.user_config_path().read_text(encoding="utf-8"))
+    written = paths.write_user_config(found, cfg.values.get("lang"), keep=user_cfg)
     print(t("setup_wrote_config", path=written))
     for name, r in roots.items():
         if not r.ok:
@@ -116,6 +122,18 @@ def cmd_setup(args, cfg: paths.Config) -> int:
             print(t("setup_glossary", count=count, path=db))
         else:
             print(t("setup_glossary_skip"))
+    if not args.no_index and roots["game"].ok and roots["documents"].ok:
+        from vic3tools.core.vfs import ModSet
+        from vic3tools.index import db
+
+        try:
+            ms = ModSet.from_playset(None, paths.load_config())
+        except KeyError as e:
+            print(t("setup_index_skip", why=e.args[0]))
+        else:
+            for m in ms.mods:
+                db.open_index(m).close()
+            print(t("setup_index", source=ms.source, count=len(ms.mods)))
     tiger = tiger_path()
     print(t("setup_tiger_ok", path=tiger) if tiger.is_file() else t("setup_tiger_missing", path=tiger.parent))
     print(t("setup_done"))

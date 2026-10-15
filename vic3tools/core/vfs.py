@@ -27,6 +27,15 @@ from pathlib import Path
 from vic3tools.core import paths
 
 FIRST_WINS_CATEGORIES = ("common/scripted_effects", "common/scripted_triggers", "common/script_values")
+# Top-level folders the game reads from a mod (as in vanilla's game/); anything else (docs, _archive/…) never loads.
+LOADED_FOLDERS = {"common", "content_source", "data_binding", "dlc", "dlc_metadata", "events", "fonts", "gfx", "gui",
+                  "input_profile", "interface", "localization", "map_data", "music", "notifications", "sound",
+                  "soundtrack", "tools"}
+
+
+def loads(rel: str) -> bool:
+    """Whether the game reads a mod file at all (by its top-level folder)."""
+    return rel.split("/", 1)[0] in LOADED_FOLDERS
 
 
 @dataclass(frozen=True)

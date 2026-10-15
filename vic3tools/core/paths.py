@@ -104,8 +104,9 @@ def load_config(start: Path | None = None) -> Config:
     return cfg
 
 
-def write_user_config(roots: dict[str, Path], lang: str | None = None) -> Path:
-    """Write the user config with the given roots (and language). Overwrites the file."""
+def write_user_config(roots: dict[str, Path], lang: str | None = None, keep: dict | None = None) -> Path:
+    """Write the user config with the given roots and language; other tables of string values in ``keep``
+    (``mod_paths``…) are written back as they were. Overwrites the file."""
     f = user_config_path()
     f.parent.mkdir(parents=True, exist_ok=True)
     lines = ["# vic3tools user config, written by `v3 setup`; edit to correct what was found", ""]
@@ -115,6 +116,11 @@ def write_user_config(roots: dict[str, Path], lang: str | None = None) -> Path:
     for name in ROOT_NAMES:
         if name in roots:
             lines.append(f"{name} = {_toml_str(str(roots[name]))}")
+    for section, body in (keep or {}).items():
+        if section in ("roots", "lang") or not isinstance(body, dict):
+            continue
+        lines += ["", f"[{section}]"]
+        lines += [f"{_toml_str(str(k))} = {_toml_str(str(v))}" for k, v in body.items()]
     f.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return f
 

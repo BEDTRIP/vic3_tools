@@ -39,6 +39,10 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 doctor` | what is ready and what is not; exit code 1 if something is missing |
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
+| `v3 def <name>…` | where a name is defined — records (with their line range), GUI types and templates, loc keys — and which definition wins |
+| `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
+| `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |
+| `v3 outline <file>` | the tree of records / GUI widgets of a file with line ranges and names (a widget's `name`, else its `text`); `--find X` — nodes whose key or name contains X, with the path to them; `--at LINE` — the nodes around a line. Read this before opening a big file |
 | `v3 playsets` | the launcher's playsets, the active one marked |
 | `v3 mods` | the mods of a set, in load order |
 | `v3 winner <folder> <key>…` | every definition of a record in load order, what each does (creates, replaces, merges, is ignored, is lost) and which one the game uses; `v3 winner loc <key> --lang russian`, `v3 winner gui <type>` — the same for a localization key and a GUI type |
@@ -78,6 +82,22 @@ The rules `v3 winner` applies, as observed in the game (1.13):
 
 Each mod is indexed once into the cache (`cache/index/`); later calls read again only the files that changed (vanilla
 from scratch ~7 s, after that ~2 s).
+
+### The index
+
+`v3 def`, `refs`, `loc` and the compatibility commands read one SQLite database per mod in the cache
+(`cache/index/`), built by `v3 setup` for the active playset or on first use, and refreshed by changed files on every
+call (vanilla: ~40 s once, then ~1 s). It holds:
+
+- **definitions** — top-level records of `.txt` files, GUI `type`s and `template`s, loc keys of every language;
+- **references** — every identifier outside comments in script and GUI files (also inside strings, so
+  `[GetVariable('x')]` counts) and the `[…]` / `$…$` parts of English loc, each with the record it sits in and the
+  keys above it. Plain lowercase words without `_` (`yes`, `limit`, `wood`) are left out; `v3 refs` reads the files
+  for those;
+- **loc texts** in English and Russian.
+
+Only the folders the game reads count as loaded (`common/`, `events/`, `gui/`, `localization/`, `map_data/`,
+`gfx/`…); anything else in a mod folder (documents, `_archive/`) is indexed but marked "never loads".
 
 ### Glossary
 

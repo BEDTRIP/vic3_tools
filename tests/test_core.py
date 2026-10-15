@@ -37,11 +37,13 @@ def test_config_project_overrides_user(home, tmp_path):
 
 
 def test_write_user_config_roundtrip(home):
-    f = paths.write_user_config({"game": Path(r"C:\it's here"), "documents": Path("/docs")}, "en")
+    f = paths.write_user_config({"game": Path(r"C:\it's here"), "documents": Path("/docs")}, "en",
+                                keep={"mod_paths": {"E&F: Ledgerdemain": r"C:\repo"}, "roots": {"game": "x"}})
     cfg = paths.load_config(home)
     assert cfg.files == [f]
     assert cfg.get("roots", "game") == r"C:\it's here"
     assert cfg.values["lang"] == "en"
+    assert cfg.get("mod_paths", "E&F: Ledgerdemain") == r"C:\repo"
 
 
 def test_resolve_roots_config_wins(home, game, monkeypatch):
