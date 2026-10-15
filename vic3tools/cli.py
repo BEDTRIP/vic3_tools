@@ -48,6 +48,12 @@ def main(argv: list[str] | None = None) -> int:
 
     cli_compat.add_parsers(sub)
 
+    p = sub.add_parser("hook", help="Claude Code hooks (reads the hook's JSON on stdin)")
+    hsub = p.add_subparsers(dest="hook_event", required=True, metavar="<event>")
+    h = hsub.add_parser("pre-tool-use", help="a grep for a name / a read of a whole big file in game or mod "
+                        "folders: answer from the index instead, once per session")
+    h.set_defaults(func=cmd_hook)
+
     p = sub.add_parser("docs", help="checks of this repo's documents")
     dsub = p.add_subparsers(dest="docs_command", required=True, metavar="<check>")
     d = dsub.add_parser("check-ru", help="are the Russian translations in docs/ru/ current")
@@ -191,6 +197,12 @@ def cmd_glossary(args, cfg: paths.Config) -> int:
     if more:
         print(t("glossary_more", shown=args.limit))
     return 0
+
+
+def cmd_hook(args, cfg: paths.Config) -> int:
+    from vic3tools import hook
+
+    return hook.main()
 
 
 def cmd_docs_check_ru(args, cfg: paths.Config) -> int:

@@ -39,6 +39,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 doctor` | what is ready and what is not; exit code 1 if something is missing |
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
+| `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
 | `v3 def <name>…` | where a name is defined — records (with their line range), GUI types and templates, loc keys — and which definition wins |
 | `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
 | `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |

@@ -1,7 +1,18 @@
 # Claude Code plugin
 
-The plugin for coding agents: skills, hooks, the bridge as an MCP server, all on top of the `v3` command. Empty for
-now — the skills and the hook after an edit come with the stages that make them useful (checks, GUI help).
+For coding agents working on Victoria 3 mods, on top of the `v3` command (install the package first, see the repo's
+`README.md`).
+
+- **Skill `vic3-search`** — when a question is "where is X defined, who uses it, which mod wins, what does this loc key
+  say, what is in this big file", use `v3 def` / `refs` / `winner` / `loc` / `outline` instead of grep and reading
+  whole files.
+- **Hook (PreToolUse on Grep, Bash, PowerShell, Read)** — `v3 hook pre-tool-use`. A text search for one identifier
+  over the game, the Workshop or a mod of the active playset is refused the first time in a session, and the refusal
+  carries the index's answer (`v3 def` + `v3 refs`, with the mods' folders). A read of a whole `.gui` / `.txt` over
+  300 lines there is refused once with the file's outline. The same call repeated goes through; names the index does
+  not know, regexes, other folders and other file types are never touched. Measured on six reference tasks: when the
+  agent uses the index, they cost about half the tokens (`docs/benchmarks/2026-10-15-stage2.md`); with a rule in
+  `CLAUDE.md` alone agents mostly kept to grep — hence the hook.
 
 Install from this repo:
 
@@ -10,4 +21,11 @@ Install from this repo:
 /plugin install vic3tools@vic3tools
 ```
 
-The plugin calls `v3`, so install the package first (see the repo's `README.md`).
+or, with a local checkout (the plugin is then read from the folder, edits apply at the next session):
+
+```
+claude plugin marketplace add <path to vic3_tools>
+claude plugin install vic3tools@vic3tools --scope user
+```
+
+`v3` must be on `PATH` for the hook; without it the hook fails quietly and nothing is blocked.
