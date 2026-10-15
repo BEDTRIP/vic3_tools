@@ -77,7 +77,7 @@ def parse_text(text: str, path: Path | None = None) -> list[GNode]:
 
 
 @lru_cache(maxsize=256)
-def _parse_file_cached(path: str, mtime: int) -> tuple[GNode, ...]:
+def _parse_file_cached(path: str, mtime: int, size: int) -> tuple[GNode, ...]:
     src = script.read(path)
     toks = script.tokens(src.text)
     nodes, _ = _parse(toks, 0, len(toks), src)
@@ -85,7 +85,8 @@ def _parse_file_cached(path: str, mtime: int) -> tuple[GNode, ...]:
 
 
 def parse_file(path: Path) -> list[GNode]:
-    return list(_parse_file_cached(str(path), path.stat().st_mtime_ns))
+    st = path.stat()  # the size too: a quick rewrite may keep the mtime
+    return list(_parse_file_cached(str(path), st.st_mtime_ns, st.st_size))
 
 
 def _parse(toks, i: int, n: int, src: script.Source) -> tuple[list[GNode], int]:

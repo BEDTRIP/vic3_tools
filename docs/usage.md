@@ -44,6 +44,11 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
 | `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |
 | `v3 outline <file>` | the tree of records / GUI widgets of a file with line ranges and names (a widget's `name`, else its `text`); `--find X` — nodes whose key or name contains X, with the path to them; `--at LINE` — the nodes around a line. Read this before opening a big file |
+| `v3 gui resolve FILE:LINE` | the widget around a line as the game builds it — its type chain, `using` templates, `block` / `blockoverride` substituted — every property with `file:line` and how it got there; `--prop fontsize,elide` — only those, with the widgets above them; `--type NAME` — a type by name |
+| `v3 gui types Q`, `v3 gui templates Q` | the reference: types / templates whose name contains Q — definition, base, the blocks a type offers to override, how many uses, one example (vanilla first) |
+| `v3 gui textures Q` | `.dds` / `.png` files under `gfx/` whose path contains Q, with width × height and the mod whose copy loads |
+| `v3 gui set FILE:LINE KEY=VALUE…` | set properties of the widget around a line: replace at its own level or insert before its `}`; `--find TEXT` picks the widget by key or name, `--dry` shows the change only |
+| `v3 gui fit FILE:LINE` | does the text of a textbox fit its width in all 11 languages: fits, wraps into N lines, shrinks to fontsize N, is cut; `--width N` — what if it were N wide |
 | `v3 playsets` | the launcher's playsets, the active one marked |
 | `v3 mods` | the mods of a set, in load order |
 | `v3 winner <folder> <key>…` | every definition of a record in load order, what each does (creates, replaces, merges, is ignored, is lost) and which one the game uses; `v3 winner loc <key> --lang russian`, `v3 winner gui <type>` — the same for a localization key and a GUI type |
@@ -99,6 +104,45 @@ call (vanilla: ~40 s once, then ~1 s). It holds:
 
 Only the folders the game reads count as loaded (`common/`, `events/`, `gui/`, `localization/`, `map_data/`,
 `gfx/`…); anything else in a mod folder (documents, `_archive/`) is indexed but marked "never loads".
+
+### GUI
+
+`v3 gui` reads `.gui` files with their own parser (`type x = base {`, `template`, `block` / `blockoverride`, typed
+values like `color = hsv { … }`) and finds types and templates through the index. FILE is a path, or a path inside
+the set (`gui/my_panel.gui:120` — the copy that loads).
+
+```
+> v3 gui resolve gui/ld_cb_rate_panel.gui:31 --prop fontsize,fontsize_min
+default_header  [default_header_properties › widget]  E&F: Ledgerdemain: gui/ld_cb_rate_panel.gui:31
+default_header › flowcontainer › textbox
+  fontsize = 17  # vanilla: gui/shared/defaults.gui:4  via using regular_font (defaults.gui:116) ← type textbox …  (overridden by defaults.gui:15)
+  fontsize_min = 14  # vanilla: gui/shared/buttons.gui:894  via using elide_fontsize_min (backgrounds.gui:244) ← …
+  fontsize = 20  # vanilla: gui/shared/defaults.gui:15  via using fontsize_large (backgrounds.gui:259) ← block "text_size" (backgrounds.gui:258) ← …
+```
+
+How a widget is resolved:
+
+- an instance `K = { … }` of a type `K`: the bodies of the chain `K → base → …` down to a native widget, innermost
+  base first, then the instance's own body; a property repeated later wins (the loser is marked "overridden by");
+  actions (`onclick`, `state`…) may repeat;
+- `blockoverride "x"`: the outermost one wins — one handed down from an enclosing widget, then the instance's, then
+  the type chain outwards in — and it reaches `block "x"` of nested widgets too;
+- `using = T` pastes the template's properties (templates use templates);
+- a type or template defined more than once: the first, files ordered by file name across mods (as `v3 winner gui`);
+- `@name` constants are shown with their value when the same file defines them.
+
+`v3 gui fit` measures with the game's own fonts: `fonts/*.font` of the game, the engine (`clausewitz/fonts`) and the
+mods give a family's files per language (the first has the glyphs, the rest are fallbacks); the width is the sum of
+the glyphs' advances (kerning ignored). The text is the loc key of `text` in each language as the player sees it
+(`$KEY$` and `[concept_x]` replaced by their text; other `[…]` count as `00000000`; formatting and icons left out),
+or `raw_text`. The room is `max_width`, else `maximumsize`, else a fixed `size`, less `margin`; a `%` width is
+relative to the parent and is not measured. Pointed at a widget that holds the textbox (a header), it measures the
+first text inside.
+
+Not verified in the game yet (assumptions above): which `blockoverride` wins when both an outer and an inner one
+exist; that templates follow the types' rule; the font of a textbox with none (vanilla's `type textbox` gives
+`regular_font`, EBGaramond 17; with no font at all `standard_font` is assumed); the shrink step of `fontsize_min`
+(whole pixels assumed); a `@constant` defined in another file than the one that uses it.
 
 ### Glossary
 

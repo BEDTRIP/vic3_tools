@@ -1,6 +1,6 @@
 ---
 name: vic3-search
-description: Find things in Victoria 3 game and mod files with the `v3` index instead of grep and reading whole files. Use whenever a Vic3 modding question asks where something is defined, who uses or calls it, who writes a variable, which mod's definition wins, what text a localization key shows (or which key is behind a text seen in game), or what is inside a big .gui / .txt file — scripted effects and triggers, script values, variables, modifiers, buildings, laws, events, GUI types and templates, loc keys. Also when an error.log line names a variable or key.
+description: Find things in Victoria 3 game and mod files with the `v3` index instead of grep and reading whole files, and resolve or edit GUI widgets. Use whenever a Vic3 modding question asks where something is defined, who uses or calls it, who writes a variable, which mod's definition wins, what text a localization key shows (or which key is behind a text seen in game), or what is inside a big .gui / .txt file — scripted effects and triggers, script values, variables, modifiers, buildings, laws, events, GUI types and templates, loc keys. Also when an error.log line names a variable or key, and for GUI work: what font size / size a widget ends up with, which type or template to reuse, changing a widget property, whether a text fits its width.
 ---
 
 # Search Victoria 3 files with `v3`
@@ -19,6 +19,10 @@ user in their language.
 | the text of a loc key, which version the player sees | `v3 loc KEY` |
 | the key behind a text seen in the game | `v3 loc --text "text as shown"` |
 | what is in a big file | `v3 outline FILE` then `--find NAME_OR_TEXT` or `--at LINE`; read only that line range |
+| what a GUI widget really gets after types / `using` / `blockoverride` (font size, size, texture…) and from where | `v3 gui resolve FILE:LINE --prop fontsize,size` |
+| GUI types, templates, textures to reuse: base, blocks to override, an example, texture size | `v3 gui types Q`, `v3 gui templates Q`, `v3 gui textures Q` |
+| change a widget's property (no hand editing of a big `.gui`) | `v3 gui set FILE:LINE KEY=VALUE … --dry`, then without `--dry` |
+| does a label fit its width in all 11 languages | `v3 gui fit FILE:LINE` (`--width N` to try a width) |
 
 How to work:
 
