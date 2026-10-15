@@ -162,5 +162,5 @@ def gui_type(ms: ModSet, idx: list[ModIndex], name: str) -> Verdict:
         v.winner = found[0]
         found[0].note = "wins: first registration"
         for d in found[1:]:
-            d.note = "ignored: already registered (gui.log: \"already registered\")"
+            d.note = "ignored: the type is registered earlier (a run's gui.log would say \"already registered\")"
     return v
