@@ -1,5 +1,5 @@
 {
-  "description": "A grep for a name, or a read of a whole big .gui/.txt, in game or mod folders gets the v3 index answer instead, once per session",
+  "description": "A grep for a name, or a read of a whole big .gui/.txt, in game or mod folders gets the v3 index answer instead, once per session; an edit of a playset mod's file gets v3 lint's fast rules",
   "hooks": {
     "PreToolUse": [
       {
@@ -8,9 +8,29 @@
           {
             "type": "command",
             "command": "v3",
-            "args": ["hook", "pre-tool-use"],
+            "args": [
+              "hook",
+              "pre-tool-use"
+            ],
             "timeout": 30,
             "statusMessage": "v3: checking the index"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "v3",
+            "args": [
+              "hook",
+              "post-tool-use"
+            ],
+            "timeout": 30,
+            "statusMessage": "v3: checking the edited file"
           }
         ]
       }

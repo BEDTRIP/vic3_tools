@@ -53,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     h = hsub.add_parser("pre-tool-use", help="a grep for a name / a read of a whole big file in game or mod "
                         "folders: answer from the index instead, once per session")
     h.set_defaults(func=cmd_hook)
+    h = hsub.add_parser("post-tool-use", help="after an edit of a playset mod's file: its fast lint rules, known "
+                        "reports left out, as context for the agent")
+    h.set_defaults(func=cmd_hook_post)
 
     p = sub.add_parser("docs", help="checks of this repo's documents")
     dsub = p.add_subparsers(dest="docs_command", required=True, metavar="<check>")
@@ -203,6 +206,12 @@ def cmd_hook(args, cfg: paths.Config) -> int:
     from vic3tools import hook
 
     return hook.main()
+
+
+def cmd_hook_post(args, cfg: paths.Config) -> int:
+    from vic3tools import hook_lint
+
+    return hook_lint.main()
 
 
 def cmd_docs_check_ru(args, cfg: paths.Config) -> int:

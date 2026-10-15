@@ -5,14 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import struct
 from pathlib import Path
 
 from vic3tools.cli_compat import mod_set
-from vic3tools.core import loc as locfile
 from vic3tools.core import paths
-from vic3tools.gui import edit, fit, fonts, resolve, tree
+from vic3tools.gui import edit, fit, fonts, loctext, resolve, tree
 from vic3tools.i18n import t
 from vic3tools.index import query
 
@@ -340,22 +338,6 @@ def cmd_set(args, cfg) -> int:
 # --- fit -------------------------------------------------------------------------------------------------------------
 
 
-def loc_all(si: query.SetIndex, key: str, langs: list[str]) -> dict[str, tuple[str, query.Hit]]:
-    """The text of ``key`` the game shows in each language (``replace/`` first, else the first in load order)."""
-    order = {m: i for i, m in enumerate(si.ms.mods)}
-    out = {}
-    hits = [h for h in si.defs(key) if h.kind == "loc" and h.loads]
-    for lang in langs:
-        hs = sorted((h for h in hits if h.folder == lang),
-                    key=lambda h: ("/replace/" not in h.rel, order[h.mod], h.rel.encode()))
-        for h in hs:
-            e = next((e for e in locfile.read_file(h.mod.path / h.rel) if e.line == h.line), None)
-            if e is not None:
-                out[lang] = (e.text, h)
-                break
-    return out
-
-
 def cmd_fit(args, cfg) -> int:
     si = _open(args, cfg)
     try:
@@ -377,8 +359,8 @@ def cmd_fit(args, cfg) -> int:
             return 1
         val = tp.value.strip('"')
         if tp.key == "text" and val and "[" not in val and " " not in val:
-            found = loc_all(si, val, langs)
-            texts = {lang: _expand_loc(si, tx, lang) for lang, (tx, _h) in found.items()}
+            found = loctext.texts(si, val, langs)
+            texts = {lang: loctext.expand(si, tx, lang) for lang, (tx, _h) in found.items()}
             source = f"loc {val}"
             missing = [lang for lang in langs if lang not in found]
         else:
@@ -420,24 +402,6 @@ def cmd_fit(args, cfg) -> int:
         return 0
     finally:
         si.close()
-
-
-_REF = re.compile(r"\$([A-Za-z_][\w.]*)\$|\[(concept_\w+)\]")
-
-
-def _expand_loc(si: query.SetIndex, text: str, lang: str, depth: int = 0) -> str:
-    """``$KEY$`` and ``[concept_x]`` replaced by their text in the same language (as the game shows them)."""
-    if depth > 4:
-        return text
-
-    def sub(m: re.Match) -> str:
-        key = m.group(1) or m.group(2)
-        found = loc_all(si, key, [lang])
-        if lang not in found:
-            return m.group(0)
-        return _expand_loc(si, found[lang][0], lang, depth + 1)
-
-    return _REF.sub(sub, text)
 
 
 def _verdict(row: fit.Row) -> str:

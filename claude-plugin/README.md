@@ -28,4 +28,8 @@ claude plugin marketplace add <path to vic3_tools>
 claude plugin install vic3tools@vic3tools --scope user
 ```
 
-`v3` must be on `PATH` for the hook; without it the hook fails quietly and nothing is blocked.
+- **Hook (PostToolUse on Edit, Write, MultiEdit)** — `v3 hook post-tool-use`. An edited `.gui` / `.txt` / `.yml`
+  of a playset mod goes through `v3 lint`'s per-file rules (braces, BOM, project rules, GUI types that never apply,
+  text width around the edited lines); reports not in the mod's baseline reach the agent in the same turn.
+
+`v3` must be on `PATH` for the hooks; without it the hook fails quietly and nothing is blocked.

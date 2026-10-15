@@ -40,6 +40,8 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
 | `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
+| `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
+| `v3 lint [MOD]` | check a mod (default: the last of the set): vic3-tiger with the mods before it loaded as dependencies, plus our rules; known reports left out (baseline, suppressions); by file and line. `--file F` — one file, `--no-tiger` — our rules only (about a second), `--key`, `--severity`, `--all`, `--baseline` — accept every current report as known |
 | `v3 def <name>…` | where a name is defined — records (with their line range), GUI types and templates, loc keys — and which definition wins |
 | `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
 | `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |
@@ -143,6 +145,50 @@ Not verified in the game yet (assumptions above): which `blockoverride` wins whe
 exist; that templates follow the types' rule; the font of a textbox with none (vanilla's `type textbox` gives
 `regular_font`, EBGaramond 17; with no font at all `standard_font` is assumed); the shrink step of `fontsize_min`
 (whole pixels assumed); a `@constant` defined in another file than the one that uses it.
+
+### Checks: `v3 lint`
+
+`v3 lint` runs [vic3-tiger](https://github.com/amtep/tiger) (installed into the tools' `bin/`) over the mod with a
+generated config: the mod's own `vic3-tiger.conf`, plus a `load_mod` for each mod before it in the set, so what CMF or
+another dependency defines is not "missing". tiger's JSON is cached and rerun only when a file of those mods changes
+(the fork with CMF and ETF: ~4 s, then ~0.1 s). Only reports located in the mod itself are kept.
+
+Our rules on top (`--rules` picks them):
+
+| rule | what it finds |
+| --- | --- |
+| `gui-type-ignored` | a GUI type of the mod that never applies: another file registers it first (files ordered by name across mods) |
+| `replace-fields` | a `REPLACE:` body that omits fields of the record it replaces — they are lost |
+| `loc-dead` | a loc key defined earlier under another path: it never shows (move it to `replace/`) |
+| `text-fit` | a one-line textbox with a width of its own whose text is cut or overflows in a language of `--langs` |
+| `braces` | `{` and `}` do not balance in a script / GUI file (the line where it breaks) |
+| `bom` | a localization file without a BOM (not read), a `.txt` with non-ASCII text and no BOM (misread); for `.gui` a warning |
+| `rule:<name>` | the project's own rules: `[[rule]]` in the mod's `v3-lint.toml` — `name`, `files` (globs), `pattern` (a regex), `message`, `severity` |
+
+Known reports are kept in the mod's root, so every session and machine shares them:
+
+- `v3-lint-baseline.json` — written by `v3 lint --baseline`: every current report accepted as known. A report is
+  matched by source, key, file, message and the text of its line (not the line number), with a count — edits
+  elsewhere do not bring it back, a new one of the same kind shows;
+- `[[suppress]]` in `v3-lint.toml` — by hand, with a reason: `key` and `file` (globs), `message` and `text`
+  (substrings), `why`.
+
+```toml
+# v3-lint.toml
+[[suppress]]
+key = "missing-item"
+file = "common/scripted_effects/ld_listing_switch.txt"
+why = "buildings of other mods, checked with has_building_type at run time"
+
+[[rule]]
+name = "no-debug-log"
+files = ["common/**", "events/**"]
+pattern = "debug_log"
+message = "debug output left in"
+```
+
+The plugin's hook after an edit runs the rules that need only that file (not tiger) and tells the agent about new
+reports in the same turn.
 
 ### Glossary
 
