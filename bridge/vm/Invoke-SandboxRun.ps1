@@ -11,7 +11,7 @@ The host keeps the repos, the mods and the tools; the guest only has Windows, St
   3. mirrors every mod of -ContentLoad (the game's content_load.json format, host paths) into
      C:\vic3tools\mods\<folder> in the guest -- only changed files travel, as one zip -- and writes the guest's
      content_load.json with the guest paths;
-  4. copies the host's game settings (pdx_settings.json, the renderer left out) and key bindings, and
+  4. copies the host's game settings (pdx_settings.json) and key bindings, and
      -StartSave from the host's "save games" into the guest's, if given;
   5. starts -Script with the parameters -ParamsJson in the guest's console session (a scheduled task: the game
      needs the desktop, PowerShell Direct itself lives in session 0) with -OutDir C:\vic3tools\runs\<id>;
@@ -147,9 +147,8 @@ try {
         -ArgumentList (Join-Path $GuestDocs "content_load.json"), $json
 
     # the host's game settings (interface scale, language, autosaves: the run scripts click at places measured on
-    # the host and read half-yearly autosaves) and key bindings; the renderer stays the guest's own
+    # the host and read half-yearly autosaves; the renderer -- Vulkan works through GPU-P too) and key bindings
     $settings = Get-Content (Join-Path $HostDocs "pdx_settings.json") -Raw -Encoding UTF8
-    $settings = $settings -replace '\s*"renderer":\s*"[^"]*",?', ''
     Invoke-Command -Session $session -ScriptBlock { param($p, $j) [IO.File]::WriteAllText($p, $j, (New-Object Text.UTF8Encoding $false)) } `
         -ArgumentList (Join-Path $GuestDocs "pdx_settings.json"), $settings
     if (Test-Path (Join-Path $HostDocs "user_bindings")) {
