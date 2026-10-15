@@ -1,0 +1,17 @@
+# The tools' own terms, en ↔ ru. The game's terms come from its localization (`v3 glossary`), not from here.
+
+index = { en = "index", ru = "индекс" }
+lint = { en = "lint (checks)", ru = "проверки (lint)" }
+outline = { en = "outline", ru = "оглавление" }
+playset = { en = "playset", ru = "плейсет (набор модов)" }
+load_order = { en = "load order", ru = "порядок загрузки" }
+winner = { en = "winner (the definition the game uses)", ru = "победитель (определение, которое берёт игра)" }
+override = { en = "override", ru = "переопределение" }
+root = { en = "root (game, workshop, documents)", ru = "корень (игра, мастерская, документы)" }
+cache = { en = "cache", ru = "кеш" }
+bridge = { en = "bridge (the PC side for cloud agents)", ru = "мост (сторона ПК для облачных агентов)" }
+sandbox = { en = "sandbox (the VM for test runs)", ru = "песочница (ВМ для прогонов)" }
+run = { en = "run (a test run of the game)", ru = "прогон" }
+compatch = { en = "compatibility patch", ru = "компач" }
+template = { en = "template (GUI `template`)", ru = "шаблон (GUI `template`)" }
+gui_type = { en = "GUI type (`type`, `types`)", ru = "GUI-тип (`type`, `types`)" }

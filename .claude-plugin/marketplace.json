@@ -1,0 +1,16 @@
+{
+  "name": "vic3tools",
+  "owner": {
+    "name": "BEDTRIP"
+  },
+  "metadata": {
+    "description": "Victoria 3 modding tools for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "vic3tools",
+      "source": "./claude-plugin",
+      "description": "Victoria 3 modding for Claude Code: skills, hooks and the PC bridge on top of the `v3` command."
+    }
+  ]
+}
