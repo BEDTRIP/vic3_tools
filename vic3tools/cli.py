@@ -12,7 +12,7 @@ import platform
 import sys
 from pathlib import Path
 
-from vic3tools import __version__, docs_check, glossary
+from vic3tools import __version__, cli_compat, docs_check, glossary
 from vic3tools.core import paths
 from vic3tools.i18n import set_lang, t
 
@@ -45,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_glossary)
 
+    cli_compat.add_parsers(sub)
+
     p = sub.add_parser("docs", help="checks of this repo's documents")
     dsub = p.add_subparsers(dest="docs_command", required=True, metavar="<check>")
     d = dsub.add_parser("check-ru", help="are the Russian translations in docs/ru/ current")
@@ -55,7 +57,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     cfg = paths.load_config()
     set_lang(args.lang or cfg.values.get("lang"))
-    return args.func(args, cfg) or 0
+    try:
+        return args.func(args, cfg) or 0
+    except (KeyError, FileNotFoundError) as e:  # a name or a folder that is not there: say so, no traceback
+        print(f"v3 {args.command}: {e.args[0] if e.args else e}", file=sys.stderr)
+        return 2
 
 
 def _emit_json(data) -> None:

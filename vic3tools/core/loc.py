@@ -54,11 +54,15 @@ def language_files(loc_root: Path, lang: str) -> list[Path]:
 
 
 def read_language(loc_root: Path, lang: str) -> dict[str, LocEntry]:
-    """Key → entry for one language. A later file overrides an earlier one, ``replace/`` overrides the rest."""
-    files = language_files(loc_root, lang)
-    files.sort(key=lambda p: "replace" in p.relative_to(loc_root).parts)
+    """Key → entry for one language: the first file that defines a key wins; ``replace/`` overrides the rest."""
     out: dict[str, LocEntry] = {}
-    for f in files:
+    replaced: set[str] = set()
+    for f in language_files(loc_root, lang):
+        in_replace = "replace" in f.relative_to(loc_root).parts
         for e in read_file(f):
-            out[e.key] = e
+            if in_replace and e.key not in replaced:
+                out[e.key] = e
+                replaced.add(e.key)
+            elif e.key not in out:
+                out[e.key] = e
     return out

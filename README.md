@@ -23,8 +23,9 @@ cache; `v3 doctor` tells what is ready. How to use the commands: [`docs/usage.md
 ## Contents
 
 - `vic3tools/` — the Python package behind the `v3` command: finding the roots and the config (`core/paths.py`),
-  readers for Steam's `.vdf` and the game's localization, the glossary, the message catalog (`i18n/`, English and
-  Russian).
+  the script parser (`core/script.py`), the game's virtual file system and load-order rules (`core/vfs.py`), readers
+  for Steam's `.vdf` and the game's localization, compatibility of a mod set (`compat/`: index, who wins, conflicts,
+  audits), the glossary, the message catalog (`i18n/`, English and Russian).
 - `claude-plugin/` — the Claude Code plugin (empty for now); `.claude-plugin/marketplace.json` makes this repo its
   marketplace.
 - `docs/` — documents in English, `docs/ru/` — their Russian translations; `docs/benchmarks/` — token and turn counts

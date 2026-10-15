@@ -39,6 +39,45 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 doctor` | what is ready and what is not; exit code 1 if something is missing |
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
+| `v3 playsets` | the launcher's playsets, the active one marked |
+| `v3 mods` | the mods of a set, in load order |
+| `v3 winner <folder> <key>…` | every definition of a record in load order, what each does (creates, replaces, merges, is ignored, is lost) and which one the game uses; `v3 winner loc <key> --lang russian`, `v3 winner gui <type>` — the same for a localization key and a GUI type |
+| `v3 conflicts <A> <B>` | what two mods (or two groups, `--groups`) both define: record keys by folder, file paths, localization keys, GUI types, event ids — with `file:line` on both sides |
+| `v3 matrix` | the same counted for every pair of mods of the set (or of groups, `--groups`) |
+| `v3 audit replace <mod>` | the mod's `REPLACE:` bodies that omit fields of the record they replace (all of them are lost); `--declared` — deliberate omissions |
+| `v3 audit stale <mod>` | the mod's full bodies that lack fields vanilla has — usually copied from an older game version |
+| `v3 audit loc-dead <mod>` | the mod's localization keys that never show: defined earlier under another path (move them to `replace/`) |
+
+### The mod set and who wins
+
+The commands about mods work on a set: vanilla first, then the mods in load order. By default it is the launcher's
+active playset (read-only from `launcher-v2.sqlite`); `--playset NAME` picks another, `--mods DIR…` gives the
+folders, `--set FILE` reads a set file:
+
+```json
+{"load_order": ["../mods_out/.vanilla", "../mods_out/CMF", "my_mod"], "labels": {"my_mod": "Mine"}}
+```
+
+Paths are relative to the file; a copy of vanilla (it has `checksum_manifest.txt`) may come first, else the installed
+game is put in front. `[mod_paths]` in `vic3tools.toml` maps a playset mod's name to another folder (say, your git
+checkout instead of the copy in `mod/`). For `matrix` and `conflicts`, `--groups FILE` adds groups of mods:
+`{"blocks": {"Group": ["mod1", "mod2"]}, "order": ["Group", …]}`.
+
+The rules `v3 winner` applies, as observed in the game (1.13):
+
+- **mod order rules; file names decide only inside one mod** (by bytes: `_` before letters, capitals before lower
+  case, `~` last);
+- a file with **the same relative path** replaces the earlier mod's file whole;
+- **records**: a later bare definition replaces the record and every `INJECT:` before it; `REPLACE:` replaces it whole;
+  `INJECT:` merges into it; `TRY_` variants skip a missing record, `_OR_CREATE` ones create it. In `scripted_effects`,
+  `scripted_triggers` and `script_values` a bare repeat does **not** override — the first definition stays;
+- **localization**: the first definition of a key wins; one in a `replace/` folder overrides the rest;
+- **GUI types**: the first registration wins, files ordered by file name across all mods (mod order does not count),
+  the file closer to the root of `gui/` first among equal names. A losing type is reported in `gui.log` as
+  "already registered".
+
+Each mod is indexed once into the cache (`cache/index/`); later calls read again only the files that changed (vanilla
+from scratch ~7 s, after that ~2 s).
 
 ### Glossary
 
