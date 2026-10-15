@@ -98,13 +98,13 @@ def test_resolve_types_blocks_templates(gset):
     assert w.key == "my_header"
     r = res.expand(w)
     assert r.types == ["my_header", "base_header", "widget"]
-    # the instance's override (30) beats the type's (12); the inner type textbox's 17 loses to both
-    assert _props(r, "fontsize") == [("17", True), ("30", False)]
+    # the type's own override (12) beats the instance's (30), as in the game; the inner type textbox's 17 loses
+    assert _props(r, "fontsize") == [("17", True), ("12", False)]
     assert _props(r, "text") == [('"MY_TITLE"', False)]
     assert _props(r, "raw_text") == []
     assert _props(r, "elide") == [("right", False)]
     box = next(p for _t, p in resolve.walk(r) if p.key == "fontsize" and not p.lost_to)
-    assert box.via[-1].startswith('blockoverride "text_size" (panel.gui:8)')
+    assert box.via[-1].startswith('blockoverride "text_size" (types.gui:17)')
     # a template through a template
     t = res.expand(res.find("type", "base_header"))
     assert _props(t, "fontsize") == [("17", True), ("20", False)]
@@ -118,7 +118,7 @@ def test_cli_resolve_and_reference(gset, capsys):
     van, m1 = gset.ms.mods[0].path, str(gset.ms.mods[1].path)
     assert cli.main(["--lang", "en", "gui", "resolve", "gui/panel.gui:4", "--prop", "fontsize", "--mods", m1]) == 0
     out = capsys.readouterr().out
-    assert "my_header › textbox" in out and "fontsize = 30" in out and "overridden by" in out
+    assert "my_header › textbox" in out and "fontsize = 12" in out and "overridden by" in out
     assert cli.main(["--lang", "en", "gui", "types", "header", "--mods", m1]) == 0
     out = capsys.readouterr().out
     assert "my_header = base_header" in out and "blocks: box, text, text_size" in out

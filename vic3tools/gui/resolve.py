@@ -5,12 +5,15 @@ Every property of the result keeps where its text is (``file:line``) and how it 
 
 - an instance ``K = { … }`` of a type ``K``: the bodies of the chain ``K → base → …`` (down to a native widget) and the
   instance's own body, innermost base first; a repeated property keeps the later value;
-- ``blockoverride "x"``: the outermost one wins — handed down from above first, then the instance, then the type
-  chain outwards in; overrides reach blocks of nested widgets too;
+- ``blockoverride "x"``: the one closest to the block wins — the type chain from the base outwards, then the
+  instance, then one handed down from an enclosing widget; overrides reach blocks of nested widgets too;
 - the winner of a type or template defined more than once: the first one, files ordered by file name across all mods
-  (``compat.winner.gui_type``).
+  (``compat.winner.gui_type``);
+- ``@name`` constants belong to the file that defines them: they work in text written in that file only.
 
-The override order and that templates follow the types' rule are assumptions, not verified in the game.
+Checked in the game (1.13.11, a probe window): a type's own ``blockoverride`` beats the instance's; an override
+reaches a block of a nested type; a template defined twice — the first (``gui.log``: "already registered"); a constant
+from another file does not resolve. Not checked: a handed-down override against a nested type's own one.
 """
 
 from __future__ import annotations
@@ -136,11 +139,13 @@ class Resolver:
             return out
         bodies = ([] if is_def else [(nd, via)]) + [(c, via + (f"type {c.name} ({self.loc(c, True)})",))
                                                      for c in chain]
-        ov = dict(overrides or {})
-        for body, bvia in bodies:  # outermost first: the first override of a name wins
+        ov: dict[str, tuple[GNode, tuple]] = {}
+        for body, bvia in reversed(bodies):  # the closest to the block first: the type chain, then the instance
             for c in body.children or []:
                 if c.head[:1] == ["blockoverride"] and c.name not in ov:
                     ov[c.name] = (c, bvia)
+        for name, o in (overrides or {}).items():  # handed down from enclosing widgets: only where none is closer
+            ov.setdefault(name, o)
         for body, bvia in reversed(bodies):  # innermost base first: later text overrides earlier
             out.children += self._items(body.children or [], ov, bvia, depth)
         _mark_repeats(out)

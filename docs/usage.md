@@ -127,11 +127,11 @@ How a widget is resolved:
 - an instance `K = { … }` of a type `K`: the bodies of the chain `K → base → …` down to a native widget, innermost
   base first, then the instance's own body; a property repeated later wins (the loser is marked "overridden by");
   actions (`onclick`, `state`…) may repeat;
-- `blockoverride "x"`: the outermost one wins — one handed down from an enclosing widget, then the instance's, then
-  the type chain outwards in — and it reaches `block "x"` of nested widgets too;
+- `blockoverride "x"`: the one closest to the block wins — the type chain from the base outwards, then the
+  instance's, then one handed down from an enclosing widget — and it reaches `block "x"` of nested widgets too;
 - `using = T` pastes the template's properties (templates use templates);
 - a type or template defined more than once: the first, files ordered by file name across mods (as `v3 winner gui`);
-- `@name` constants are shown with their value when the same file defines them.
+- `@name` constants belong to the file that defines them; they are shown with their value.
 
 `v3 gui fit` measures with the game's own fonts: `fonts/*.font` of the game, the engine (`clausewitz/fonts`) and the
 mods give a family's files per language (the first has the glyphs, the rest are fallbacks); the width is the sum of
@@ -141,10 +141,22 @@ or `raw_text`. The room is `max_width`, else `maximumsize`, else a fixed `size`,
 relative to the parent and is not measured. Pointed at a widget that holds the textbox (a header), it measures the
 first text inside.
 
-Not verified in the game yet (assumptions above): which `blockoverride` wins when both an outer and an inner one
-exist; that templates follow the types' rule; the font of a textbox with none (vanilla's `type textbox` gives
-`regular_font`, EBGaramond 17; with no font at all `standard_font` is assumed); the shrink step of `fontsize_min`
-(whole pixels assumed); a `@constant` defined in another file than the one that uses it.
+Checked in the game (1.13.11, 2026-10-15) with a probe window — one row per question, put into `ingame_hud` by a
+copy of `gui/ingame_hud.gui` (a free-standing top-level widget of a mod is not drawn on screen):
+
+| question | in the game |
+| --- | --- |
+| a type's own `blockoverride` against the instance's | the type's wins (the closest to the block) |
+| an override of a block inside a nested type instance | reaches it |
+| a template defined in two files | the first by file name; `gui.log`: "Template '…' already registered at …" |
+| a textbox with no `font` | EBGaramond — vanilla's `type textbox = textbox { using = regular_font }` applies to every textbox |
+| `fontsize_min` shrink | to whole pixels: 24 in 150 px → 16, as measured |
+| `@constant` from another file | does not resolve (zero width); a type that uses it in its own file works anywhere |
+| text width | EBGaramond 15 "Bond Capitalization": 119 px in the game, 120 measured |
+| wrap of a multiline label | as measured: English wraps at 100, fits 130; Russian wraps at 130, fits 180 |
+
+Not checked: an override handed down from an enclosing widget against a nested type's own override of the same
+block (taken as: the nested type's own wins, the closest one).
 
 ### Checks: `v3 lint`
 
