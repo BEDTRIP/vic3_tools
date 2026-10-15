@@ -79,6 +79,12 @@ def test_identifier():
     assert hook.identifier("ev.12") == "ev.12"
     assert hook.identifier("hello") is None and hook.identifier("a|b_c") is None
     assert hook.shell_identifier('grep -rn --include="*.txt" "my_var_1" common/') == "my_var_1"
+    assert hook.shell_identifier("ls | Select-String my_var_1") == "my_var_1"
+    # words inside a heredoc body or a string are not commands
+    heredoc = "cat > a.gui <<'EOF'\nraw_text = \"none Rg x\"\nmy_var_1 rg here\nEOF\nv3 lint"
+    assert hook._search_at(heredoc) is None and hook._search_at('echo "use grep my_var_1"') is None
+    assert hook.shell_identifier(heredoc + "\ngrep -n my_var_2 common/") == "my_var_2"
+    assert hook._search_at("ls Rg common/") is None
     for p in (r"my_list_\d+", "my_list_N", "my_list_.*"):
         assert hook.identifier(p) == "my_list_*", p
 

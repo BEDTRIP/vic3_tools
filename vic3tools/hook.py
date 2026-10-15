@@ -30,7 +30,21 @@ BIG_FILE_LINES = 300
 ROOTS_TTL = 600  # seconds the list of folders is cached
 MAX_ANSWER_LINES = 45
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[0-9]+)?\Z")
-_SHELL_SEARCH = re.compile(r"(?:^|[\s|;&(])(grep|egrep|rg|findstr|Select-String|sls)(?=\s)", re.I)
+# command names as typed (PowerShell's cmdlets in any case); found only outside heredoc bodies and quoted strings
+_SHELL_SEARCH = re.compile(r"(?:^|[\s|;&(])(grep|egrep|rg|findstr|(?i:Select-String|sls))(?=\s)")
+_HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n(.*?)(?:\n\2\s*(?:\n|$)|\Z)", re.S)
+_QUOTED = re.compile(r"'[^']*'|\"(?:[^\"\\]|\\.)*\"")
+
+
+def _blank(text: str, rx: re.Pattern, group: int = 0) -> str:
+    """``text`` with the matches of ``rx`` (its ``group``) replaced by spaces: offsets stay."""
+    return rx.sub(lambda m: m.group(0)[:m.start(group) - m.start()] + re.sub(r"[^\n]", " ", m.group(group))
+                  + m.group(0)[m.end(group) - m.start():], text)
+
+
+def _search_at(cmd: str) -> re.Match | None:
+    """The search command in a shell line, not a word inside a heredoc or a string."""
+    return _SHELL_SEARCH.search(_blank(_blank(cmd, _HEREDOC, 3), _QUOTED))
 _TOKEN = re.compile(r"'([^']*)'|\"([^\"]*)\"|(\S+)")
 _GAME_DIRS = re.compile(r"(?:^|[\s/\\\"'])(common|gui|localization|events|map_data)[/\\]", re.I)
 _SCRIPT_GLOB = re.compile(r"\.(txt|gui|yml)\b|\*\*?$|^\*$", re.I)
@@ -68,7 +82,7 @@ def decide(data: dict) -> str | None:
         return once(session, f"grep:{name}", lambda: name_answer(name))
     if tool in ("Bash", "PowerShell"):
         cmd = inp.get("command", "")
-        if not _SHELL_SEARCH.search(cmd):
+        if not _search_at(cmd):
             return None
         name = shell_identifier(cmd)
         if not name or not (_GAME_DIRS.search(cmd) or any(_mentions(cmd, r) for r in roots) or touches(cwd, roots)):
@@ -168,7 +182,7 @@ def identifier(pattern: str) -> str | None:
 
 def shell_identifier(cmd: str) -> str | None:
     """The first identifier-like argument after the search command in a shell line."""
-    m = _SHELL_SEARCH.search(cmd)
+    m = _search_at(cmd)
     rest = cmd[m.end():] if m else ""
     for t in _TOKEN.finditer(rest):
         tok = next(g for g in t.groups() if g is not None)
