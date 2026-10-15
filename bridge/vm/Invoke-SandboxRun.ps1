@@ -216,7 +216,12 @@ Set-Content "$dir\exit.txt" $code
             throw "the run took more than $TimeoutMinutes min - stopped"
         }
     }
-    Copy-Item "$Guest\runs\$RunId\*" $OutDir -Recurse -Force -FromSession $session
+    # the guest's own stdout.txt / exit.txt / job.json stay there: the output was printed above, and a caller (the
+    # PC bridge) may keep its own stdout.txt and exit.txt in -OutDir
+    $items = Invoke-Command -Session $session -ScriptBlock { param($d)
+        Get-ChildItem $d | Where-Object Name -notin "stdout.txt", "exit.txt", "job.json" | ForEach-Object FullName
+    } -ArgumentList "$Guest\runs\$RunId"
+    foreach ($i in $items) { Copy-Item $i $OutDir -Recurse -Force -FromSession $session }
     if ($FetchSaves) {
         $saves = Invoke-Command -Session $session -ScriptBlock { param($d, $t)
             Get-ChildItem (Join-Path $d "save games") -File -ErrorAction SilentlyContinue | Where-Object LastWriteTime -gt $t | ForEach-Object FullName
