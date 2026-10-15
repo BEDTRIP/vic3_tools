@@ -34,7 +34,7 @@ on the spot) and running the server outside VS Code — not checked (stage 5). A
 plugin is for the agent: skills, commands, hooks, MCP servers, language servers. One server (like CWTools) can have both
 "faces".
 
-**The `vic3-pc` bridge** is good for runs, not for a layout loop. An intermediate step is a "stand": the game in debug
+**The `vic3-pc` bridge** is good for runs, not for a layout loop. An intermediate step is a "test bench": the game in debug
 mode, `.gui` re-read on the fly (to be checked), a snapshot of an area (stage 6).
 
 **User's decisions of 15.10:**
@@ -101,8 +101,8 @@ file for one block, learning about an error only from `error.log` after a run, l
 1. **Answer briefly** — `path:line` and an extract, not the whole file. Output by default is meant for the agent
    (limited in size), `--json` is for other tools.
 2. **Catch errors before a run** — checks of script, localization and GUI, automatically after an edit (a hook).
-3. **Show the GUI without a run** — first a stand on the live game through the bridge, then our own `.gui` → PNG render.
-4. **Be common** — work with any mod and playset; what belongs to a project (compacts, the fork's money model) stays
+3. **Show the GUI without a run** — first a test bench on the live game through the bridge, then our own `.gui` → PNG render.
+4. **Be common** — work with any mod and playset; what belongs to a project (compatibility patches, the fork's money model) stays
    outside, on top of the common core.
 
 The measure: tokens and turns on six reference tasks T1–T6 (find where something is defined and who uses it; fix a
@@ -118,7 +118,7 @@ Everything is in `vic3_mods`: 165 scripts in `tools/`, the bridge, four skills, 
 | --- | --- | --- |
 | **Script parsing** | `ld_pdx.py` (records with exact boundaries), `vic3lib.py` (byte parsing for generators), `index_mod.py`, `ld_index.py` (definitions and references), `ld_braces.py`, `vfs_order.py` (who wins a key by load order), `vic3merge3.py` (three-way merge of records) | **the core** of the new repo; merge the two parsers into one |
 | **Mod compatibility** | `scan_conflicts.py`, `pair_matrix.py`, `content_holes.py`, `check_megapack_conflicts.py`, `replace_audit.py`, `stale_bodies.py`, `loc_dead_overrides.py`, `summarize_mod_vs_vanilla.py`, `compare_gui_names.py`, `scan_event_definitions.py`, `list_lawgroups_diff.py` | **to the new repo**, on top of the core; three of them now have their own key parsing with the same "black list" |
-| **Generators of compacts and addons** | `regen_greys_*`, `regen_vc_*`, `regen_llwa_*`, `regen_hc_*`, `regen_tgr_*`, `build_addon_*`, `*_metadata.py`, `tgr_default_strategy.py`, `regen_ef_tr_copies.py` (~40) | **stay** in `vic3_mods`; to the new repo — the common frame (`ld_gen.emit`, the `--check` mode, building an addon from pairs) |
+| **Generators of compatibility patches and addons** | `regen_greys_*`, `regen_vc_*`, `regen_llwa_*`, `regen_hc_*`, `regen_tgr_*`, `build_addon_*`, `*_metadata.py`, `tgr_default_strategy.py`, `regen_ef_tr_copies.py` (~40) | **stay** in `vic3_mods`; to the new repo — the common frame (`ld_gen.emit`, the `--check` mode, building an addon from pairs) |
 | **The fork's generators** | `regen_ef_*`, `regen_ld_*` (~25), `ld_gen.py`, `ld_curdata.py` | **stay** (the fork's content); the frame is common |
 | **Saves** | `save_*`, `scan_save_*`, `ld_save_*`, `scan_building_*`, `scan_goods_io.py`, `scan_pop_need.py`, `scan_company_buildings.py`, `check_fx_reserves.py` (~20) | **the core**: one parser of a text save with a cache, the scripts become queries to it |
 | **Logs and runs (common)** | `ld_logcats.py`, `ld_logdiff.py`, `ld_errsites.py`, `ld_runcmp.py`, `ld_speed.py`, `ld_logparts_check.py` | **to the new repo** |
@@ -133,7 +133,7 @@ Documents are tools too: they are knowledge the agent reads instead of finding o
 | --- | --- | --- |
 | **"Правила работы с модами Victoria 3.md"** (314 lines) | how the game loads and overrides mods, facts of 1.13 (script, buildings, GUI, CMF / ETF), diagnostics, analysis procedures, what not to do | **to the new repo — the knowledge base about the engine**: a short skill `vic3-modding` + references by topic, read when needed; the checkable facts go into the `v3 lint` rules (the first file registers a type, a stale copy of a vanilla `.gui` without a widget is a crash, `REPLACE` without fields) |
 | **"Правила — сборка.md"** (159) | blocks, pairs, addons, building a megapack, generators | the method becomes the **common skill `vic3-compat`**; what concerns a particular set stays |
-| **"Правила — проект.md"** (328) | what lies where, `blocks.json`, the format of a compact's README, pair statuses, the environment (Python, CRLF, git) | **stays**; section 8 (environment) is common, in the tools repo |
+| **"Правила — проект.md"** (328) | what lies where, `blocks.json`, the format of a compatibility patch's README, pair statuses, the environment (Python, CRLF, git) | **stays**; section 8 (environment) is common, in the tools repo |
 | `CLAUDE.md` of both repos | git and commit rules, the same in two places | the common working rules once, in the plugin; in the projects' `CLAUDE.md` — a link and the project part |
 | `tools/steam desc rules.txt` | rules for Workshop descriptions | a common publishing skill |
 | `сводки по модам/` (9 summaries) | what other people's mods of the set do | **stay** — knowledge about the set |
@@ -173,7 +173,7 @@ tests/                  tests on small examples
 
 - **One command** `v3 <subcommand>` (`v3 def`, `v3 refs`, `v3 outline`, `v3 lint`, `v3 winner`…), each with `--help`,
   short output and `--json`.
-- **Projects plug in the package** (`pip install -e ../vic3-tools`) and keep their own: the generators of compacts in
+- **Projects plug in the package** (`pip install -e ../vic3-tools`) and keep their own: the generators of compatibility patches in
   `vic3_mods`, the `eflog` parsers and document checks with the fork.
 
 ## Where the files come from
@@ -262,7 +262,7 @@ The order is by gain per effort. "Where" is what is needed to work: the cloud ca
 | 3 | **GUI** | `v3 gui resolve` (a widget with `using` / `blockoverride` substituted), a reference of vanilla types, templates and textures with samples, `v3 gui set <file> <path> prop=…`, a check: does the text fit the width in 11 languages | PC; from the cloud — through the bridge |
 | 4 | **Checks and hook** | `v3 lint` = tiger (`--json`, suppression database) + our own rules on top: duplicate GUI types by the "first file" rule, text width, `REPLACE` without fields, project ones; short output, by place; a hook after an edit in the plugin | PC (tiger reads vanilla); from the cloud — through the bridge |
 | 5 | **CWTools trial** | after stage 4: if tiger and the index covered checks and search — not needed; otherwise run the CWTools server outside VS Code on the PC, count the false reports, on success — LSP in the plugin | PC |
-| 6 | **Bridge v2** | the cloud agent calls any `v3` command on the PC (instead of six script names); a "stand" mode: the game in debug mode on a save, the GUI file re-read on the fly (to be checked), a snapshot of a screen area; comparing two snapshots | PC |
+| 6 | **Bridge v2** | the cloud agent calls any `v3` command on the PC (instead of six script names); a "test bench" mode: the game in debug mode on a save, the GUI file re-read on the fly (to be checked), a snapshot of a screen area; comparing two snapshots | PC |
 | 7 | **Skills and knowledge** | `vic3-gui` in the spirit of Impeccable: `init` writes a style file of the Vic3 interface from vanilla, passes `audit` / `polish` / `critique` with checklists; a common `vic3-sandbox`; `vic3-modding` from "Правила работы с модами Victoria 3.md" (a skill + references by topic; the checkable facts already went to `lint` at stage 4); `vic3-compat` from "Правила — сборка.md"; common git rules into the plugin | cloud |
 | 8 | **Saves and logs** | parse a save once into the cache, the `save_*` / `scan_*` scripts become queries; common log parsers | PC; from the cloud — through the bridge |
 | 9 | **GUI render** | `.gui` → PNG without the game: layout (`flowcontainer`, `hbox`/`vbox`, `layoutpolicy`, anchors, `scrollarea`), `.dds`, frames and frame slicing, fonts, stubs in place of `[…]`; comparing with the game's snapshots through the bridge | PC (vanilla textures on the spot); from the cloud — through the bridge |
