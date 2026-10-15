@@ -21,7 +21,7 @@ user in their language.
 | what is in a big file | `v3 outline FILE` then `--find NAME_OR_TEXT` or `--at LINE`; read only that line range |
 | what a GUI widget really gets after types / `using` / `blockoverride` (font size, size, texture…) and from where | `v3 gui resolve FILE:LINE --prop fontsize,size` |
 | GUI types, templates, textures to reuse: base, blocks to override, an example, texture size | `v3 gui types Q`, `v3 gui templates Q`, `v3 gui textures Q` |
-| change a widget's property (no hand editing of a big `.gui`) | `v3 gui set FILE:LINE KEY=VALUE … --dry`, then without `--dry` |
+| change a widget's property, or give the exact edit with its lines (no hand editing or line counting in a big `.gui`) | `v3 gui set FILE:LINE KEY=VALUE … --dry`, then without `--dry` |
 | does a label fit its width in all 11 languages | `v3 gui fit FILE:LINE` (`--width N` to try a width) |
 
 How to work:

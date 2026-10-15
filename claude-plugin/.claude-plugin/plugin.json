@@ -1,6 +1,6 @@
 {
   "name": "vic3tools",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Victoria 3 modding for Claude Code: the vic3-search skill and a hook that answers greps in game and mod folders from the v3 index.",
   "author": {
     "name": "BEDTRIP"
