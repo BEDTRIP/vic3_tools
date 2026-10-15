@@ -38,6 +38,9 @@ class Report:
         return f"{self.path}:{self.line}" if self.line else self.path
 
 
+SKIP_IN_STAMP = {"v3-lint-baseline.json", "v3-lint.toml"}  # ours: writing them must not rerun tiger
+
+
 def exe() -> Path:
     return paths.bin_dir() / ("vic3-tiger.exe" if sys.platform == "win32" else "vic3-tiger")
 
@@ -49,6 +52,8 @@ def _stamp(mods: list[Mod]) -> str:
         for dirpath, dirs, files in os.walk(m.path):
             dirs[:] = sorted(d for d in dirs if not d.startswith("."))
             for f in sorted(files):
+                if f in SKIP_IN_STAMP:
+                    continue
                 try:
                     st = os.stat(os.path.join(dirpath, f))
                 except OSError:
@@ -94,7 +99,10 @@ def run(ms: ModSet, mod: Mod, refresh: bool = False, timeout: int = 900) -> list
     if roots["workshop"].ok:
         cmd += ["--workshop", str(roots["workshop"].path)]
     cmd.append(str(mod.path))
-    res = subprocess.run(cmd, capture_output=True, timeout=timeout)
+    # one thread: in parallel tiger deduces the scope types of variables in a different order from run to run and
+    # reports different lines (measured: 1 run in 10-20 differs by ~300 reports); one thread is ~2x slower, cached
+    env = dict(os.environ, RAYON_NUM_THREADS="1")
+    res = subprocess.run(cmd, capture_output=True, timeout=timeout, env=env)
     raw = res.stdout.decode("utf-8", "replace")
     if not raw.strip().startswith("["):
         err = (res.stderr.decode("utf-8", "replace") or raw).strip().splitlines()

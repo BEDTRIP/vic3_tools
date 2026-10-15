@@ -4,7 +4,8 @@ Two ways to silence a report, both kept in the mod's root (so every session and 
 
 - ``v3-lint-baseline.json`` — reports accepted as known (``v3 lint --baseline`` writes every current one). A report
   is matched by its fingerprint — source, key, file, message and the text of its line — not by line number, so edits
-  elsewhere in the file do not bring it back; each fingerprint keeps a count;
+  elsewhere in the file do not bring it back; each fingerprint keeps a count (scope reports, which tiger deduces
+  differently from run to run, match by file and line text only, with no count);
 - ``[[suppress]]`` in ``v3-lint.toml`` — rules by hand: every field given must match (``key`` and ``file`` are
   globs, ``message`` and ``text`` substrings), with ``why``::
 
@@ -34,6 +35,9 @@ from vic3tools.lint.tiger import Report
 
 SEVERITY = {"error": 0, "warning": 1, "untidy": 2, "tips": 3}
 BASELINE = "v3-lint-baseline.json"
+# tiger deduces the scope type of a variable used in two scopes differently from run to run (one run reports the
+# country uses, the next the company ones): these keys are matched by file and line text only, without counts
+FLAKY = {"scopes", "strict-scopes", "modifiers"}
 
 
 @dataclass
@@ -45,7 +49,8 @@ class Result:
 
 
 def fingerprint(r: Report) -> str:
-    return "|".join((r.source, r.key, r.path, r.message, r.text))
+    msg = "" if r.key in FLAKY else r.message  # the place is enough: the message names the scopes guessed
+    return "|".join((r.source, r.key, r.path, msg, r.text))
 
 
 def collect(si: SetIndex, mod_i: int, use_tiger: bool = True, refresh: bool = False,
@@ -95,8 +100,11 @@ def load_baseline(mod: Mod) -> Counter:
     return Counter(json.loads(p.read_text(encoding="utf-8")).get("counts", {}))
 
 
-def write_baseline(mod: Mod, reports: list[Report]) -> int:
+def write_baseline(mod: Mod, reports: list[Report], *more: list[Report]) -> int:
+    """Accept ``reports`` as known; ``more`` — the same check run again (tiger varies): each count is the largest."""
     counts = Counter(fingerprint(r) for r in reports)
+    for other in more:
+        counts |= Counter(fingerprint(r) for r in other)
     data = {"about": "reports of `v3 lint` accepted as known; `v3 lint --baseline` rewrites it",
             "made": datetime.date.today().isoformat(), "counts": dict(sorted(counts.items()))}
     (mod.path / BASELINE).write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
@@ -124,7 +132,8 @@ def split(mod: Mod, reports: list[Report], use_baseline: bool = True) -> Result:
             continue
         fp = fingerprint(r)
         if left[fp] > 0:
-            left[fp] -= 1
+            if r.key not in FLAKY:
+                left[fp] -= 1
             res.baselined.append(r)
             continue
         res.shown.append(r)

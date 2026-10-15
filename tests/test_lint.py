@@ -61,6 +61,14 @@ def test_baseline_and_suppress(lset):
     assert again.shown == [res.shown[0]]
 
 
+def test_flaky_scope_reports_match_both_ways(tmp_path):
+    mod = Mod("m", tmp_path)
+    a = tiger.Report("warning", "", "scopes", "`prev` produces company but expected country", "f.txt", 1, 0, "x = prev")
+    b = tiger.Report("warning", "", "scopes", "`prev` produces country but expected company", "f.txt", 9, 0, "x = prev")
+    run.write_baseline(mod, [a])
+    assert run.split(mod, [b, b, b]).shown == []  # the other deduction, any count
+
+
 def test_cli_lint_no_tiger(lset, capsys):
     m1 = str(lset.ms.mods[1].path)
     rc = cli.main(["--lang", "en", "lint", "--no-tiger", "--mods", m1])

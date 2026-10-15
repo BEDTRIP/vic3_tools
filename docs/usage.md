@@ -151,7 +151,9 @@ exist; that templates follow the types' rule; the font of a textbox with none (v
 `v3 lint` runs [vic3-tiger](https://github.com/amtep/tiger) (installed into the tools' `bin/`) over the mod with a
 generated config: the mod's own `vic3-tiger.conf`, plus a `load_mod` for each mod before it in the set, so what CMF or
 another dependency defines is not "missing". tiger's JSON is cached and rerun only when a file of those mods changes
-(the fork with CMF and ETF: ~4 s, then ~0.1 s). Only reports located in the mod itself are kept.
+(the fork with CMF and ETF: ~8 s, then ~0.1 s). tiger runs on one thread: in parallel it deduces the scope types
+of variables in a different order and reports different lines from run to run. Only reports located in the mod
+itself are kept.
 
 Our rules on top (`--rules` picks them):
 
@@ -169,7 +171,9 @@ Known reports are kept in the mod's root, so every session and machine shares th
 
 - `v3-lint-baseline.json` — written by `v3 lint --baseline`: every current report accepted as known. A report is
   matched by source, key, file, message and the text of its line (not the line number), with a count — edits
-  elsewhere do not bring it back, a new one of the same kind shows;
+  elsewhere do not bring it back, a new one of the same kind shows; scope reports (`scopes`, `strict-scopes`,
+  `modifiers`) match by file and line text alone — their message names the scopes tiger guessed, which shifts when
+  other files change;
 - `[[suppress]]` in `v3-lint.toml` — by hand, with a reason: `key` and `file` (globs), `message` and `text`
   (substrings), `why`.
 
