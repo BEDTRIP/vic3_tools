@@ -57,13 +57,30 @@ while (-not $session) {
     catch { if ((Get-Date) -gt $end) { throw "the guest does not answer over PowerShell Direct" }; Start-Sleep 5 }
 }
 try {
-    $ready = Invoke-Command -Session $session -ScriptBlock {
+    $probe = {
         $end = (Get-Date).AddMinutes(3)
         while (-not (Get-Process explorer -ErrorAction SilentlyContinue) -and (Get-Date) -lt $end) { Start-Sleep 3 }
         @{ desktop = [bool](Get-Process explorer -ErrorAction SilentlyContinue)
            game = [bool](Get-Process victoria3 -ErrorAction SilentlyContinue)
+           # "Disc": the session lost its console (a VMConnect window was opened and closed); screenshots fail there
+           active = ((query user 2>&1) -join " ") -match "\bActive\b"
            docs = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Paradox Interactive\Victoria 3" }
     }
+    $ready = Invoke-Command -Session $session -ScriptBlock $probe
+    if ($ready.desktop -and -not $ready.active -and -not $ready.game) {
+        # autologon puts the session back on the console after a restart from inside (never Restart-VM -Force)
+        Say "the guest's session is disconnected - restarting the guest from inside"
+        Invoke-Command -Session $session -ScriptBlock { Restart-Computer -Force }
+        Remove-PSSession $session; $session = $null
+        Start-Sleep 30
+        $end = (Get-Date).AddMinutes(6)
+        while (-not $session) {
+            try { $session = New-PSSession -VMName $Name -Credential $cred -ErrorAction Stop }
+            catch { if ((Get-Date) -gt $end) { throw "the guest did not come back after the restart" }; Start-Sleep 5 }
+        }
+        $ready = Invoke-Command -Session $session -ScriptBlock $probe
+    }
+    if (-not $ready.active) { throw "the guest's session is not on the console (query user: not Active)" }
     if (-not $ready.desktop) { throw "no desktop session in the guest (autologon: Initialize-SandboxGuest.ps1)" }
     if ($ready.game) { throw "Victoria 3 is already running in the guest" }
     $GuestDocs = $ready.docs
