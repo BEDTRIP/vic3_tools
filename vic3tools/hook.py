@@ -159,6 +159,10 @@ def identifier(pattern: str) -> str | None:
     p = pattern.strip()
     p = re.sub(r"^(\\b|\\<|\^|\\s\*)+|(\\b|\\>|\$|\\s\*=?)+$", "", p)
     p = p.replace("\\.", ".")
+    # a numbered family: `name_\d+`, `name_[0-9]+`, `name_.*`, `name_N` → the glob `name_*`
+    fam = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*?_?)(?:\\d[+*]?|\[0-9\][+*]?|\.\*|\.\+|N|\*)", p)
+    if fam and len(fam.group(1)) >= 6 and fam.group(1).endswith("_"):
+        return fam.group(1) + "*"
     return p if _IDENT.match(p) and len(p) >= 4 and ("_" in p or "." in p or p.isupper()) else None
 
 
@@ -231,10 +235,22 @@ def _clip(text: str) -> str:
 
 
 def name_answer(name: str) -> str | None:
-    dcode, dout = _v3("def", name)
-    rcode, rout = _v3("refs", name, "--limit", "20")
-    if dcode != 0 and rcode != 0:
+    if not name.endswith("*"):
+        dcode, dout = _v3("def", name)
+        rcode, rout = _v3("refs", name, "--limit", "20")
+        if dcode == 0 or rcode == 0:
+            return _name_text(name, dout, rout)
+        name += "*"  # not a name of its own: maybe the common part of numbered names (`list_` → `list_1`…)
+    gcode, gout = _v3("refs", name)
+    if gcode != 0:
         return None  # the index does not know it: grep is the right tool
+    return ("The v3 index answers this search (vic3-search skill) — use it instead of grep:\n\n"
+            f"$ v3 refs '{name}'\n{_clip(gout)}\n\nOne of them in detail: `v3 refs <name>` (file:line, the record "
+            "it sits in, writes). If you still need a text search (comments, documents, free text), repeat the same "
+            "call and it will run.")
+
+
+def _name_text(name: str, dout: str, rout: str) -> str:
     return ("The v3 index answers this search (vic3-search skill) — use it instead of grep:\n\n"
             f"$ v3 def {name}\n{_clip(dout)}\n\n$ v3 refs {name}\n{_clip(rout)}\n\n{_folders(dout + rout)}"
             "Follow a chain with `v3 refs <the record a use sits in>`. If you still need a text search (comments, "

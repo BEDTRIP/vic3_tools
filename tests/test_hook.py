@@ -79,3 +79,15 @@ def test_identifier():
     assert hook.identifier("ev.12") == "ev.12"
     assert hook.identifier("hello") is None and hook.identifier("a|b_c") is None
     assert hook.shell_identifier('grep -rn --include="*.txt" "my_var_1" common/') == "my_var_1"
+    for p in (r"my_list_\d+", "my_list_N", "my_list_.*"):
+        assert hook.identifier(p) == "my_list_*", p
+
+
+def test_numbered_family_and_prefix(env):
+    _, mod = env
+    write(mod / "common/script_values/v.txt",
+          "v1 = { every_in_list = { variable = my_buyer_list_1 } }\n"
+          "v2 = { every_in_list = { variable = my_buyer_list_2 } }\n")
+    for pattern in ("my_buyer_list_N", "my_buyer_list_"):
+        d = {"session_id": pattern, "tool_name": "Grep", "tool_input": {"pattern": pattern, "path": str(mod)}}
+        assert "2 name(s) match my_buyer_list_*" in call(d), pattern
