@@ -37,6 +37,12 @@ $ErrorActionPreference = "Stop"
 
 if (Get-VM -Name $Name -ErrorAction SilentlyContinue) { throw "VM '$Name' already exists" }
 if (-not (Test-Path $IsoPath)) { throw "ISO not found: $IsoPath" }
+# An ARM64 ISO boots nowhere on an x64 host: the firmware only says "The boot loader did not load an operating
+# system". An x64 ISO carries efi\boot\bootx64.efi.
+$img = Mount-DiskImage -ImagePath (Resolve-Path $IsoPath) -PassThru
+try { $isoRoot = "$(($img | Get-Volume).DriveLetter):"; $x64 = Test-Path "$isoRoot\efi\boot\bootx64.efi" }
+finally { Dismount-DiskImage -ImagePath $img.ImagePath | Out-Null }
+if (-not $x64) { throw "not an x64 Windows ISO (no efi\boot\bootx64.efi): $IsoPath" }
 $gpu = Get-VMHostPartitionableGpu | Where-Object Name -like "*$GpuMatch*" | Select-Object -First 1
 if (-not $gpu) { throw "no partitionable GPU matching '$GpuMatch'; see Get-VMHostPartitionableGpu" }
 
