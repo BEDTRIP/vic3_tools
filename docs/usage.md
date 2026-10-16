@@ -54,6 +54,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 gui textures Q` | `.dds` / `.png` files under `gfx/` whose path contains Q, with width × height and the mod whose copy loads |
 | `v3 gui set FILE:LINE KEY=VALUE…` | set properties of the widget around a line: replace at its own level or insert before its `}`; `--find TEXT` picks the widget by key or name, `--dry` shows the change only |
 | `v3 gui fit FILE:LINE` | does the text of a textbox fit its width in all 11 languages: fits, wraps into N lines, shrinks to fontsize N, is cut; `--width N` — what if it were N wide |
+| `v3 gui render FILE:LINE` | draw the widget to PNG without the game — resolved as by `resolve`, laid out (sizes, anchors, flowcontainer, hbox / vbox, lists), painted with the game's textures (9-slice, frames, tint) and fonts (`--lang`); `--boxes` outlines the boxes, `--compare SHOT --crop …` puts a game shot next to it. An approximation: check with `v3 bench` |
 | `v3 gui style` | the look of vanilla's interface counted from its `.gui`: the types and templates used most, text formats with their colours, font sizes, container spacing and margins, textures — each with an example `file:line` (`--out FILE`; the base of a project's GUI style file, skill `vic3-gui`) |
 | `v3 playsets` | the launcher's playsets, the active one marked |
 | `v3 mods` | the mods of a set, in load order |
@@ -209,6 +210,18 @@ message = "debug output left in"
 
 The plugin's hook after an edit runs the rules that need only that file (not tiger) and tells the agent about new
 reports in the same turn.
+
+### Drawing without the game: `v3 gui render`
+
+```
+v3 gui render gui/my_panel.gui:120 --lang russian --boxes
+v3 gui render --type my_panel --compare shot.png --crop 0,0.15,0.4,0.8   # side by side with a game shot
+```
+
+Checked against the stage-3 probe window in the game: positions within a few pixels, font sizes, shrinking, wraps
+and widths as in the game. Known gaps: `modify_texture` overlays, shaders and animations are not drawn (backgrounds
+look flatter), text icons and inline formatting are dropped, `[…]` shows as `--stub`, a widget's own anchors are not
+applied at the root.
 
 ### Test bench: `v3 bench`
 

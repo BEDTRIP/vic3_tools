@@ -121,3 +121,5 @@ log_sites = "{records} record(s), {located} pointing at a mod file; {places} pla
 log_real_lines = "lines in the file: {lines}"
 log_speed = "{run}: {count} points, {a} … {b}; {sec} s per game month"
 log_speed_few = "{run}: {count} points — too few"
+
+gui_render = "{out}: {w} × {h}"

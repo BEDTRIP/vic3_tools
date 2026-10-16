@@ -10,7 +10,8 @@ The method of Impeccable, the content of Vic3: one **style file** describing how
 
 Tools: `v3 gui resolve FILE:LINE` (what a widget really gets after types / templates / blocks), `v3 gui types|templates
 |textures Q` (what to reuse), `v3 gui fit FILE:LINE` (text width in 11 languages), `v3 gui set` (edit a property),
-`v3 lint --file F` (tiger + rules), `v3 bench` (see it in the game, ~30 s per look). Engine facts: `vic3-modding`,
+`v3 lint --file F` (tiger + rules), `v3 gui render FILE:LINE` (a PNG without the game, ~2 s — an approximation),
+`v3 bench` (see it in the game, ~30 s per look). Engine facts: `vic3-modding`,
 `references/gui.md`.
 
 ## init — the style file (once per project)

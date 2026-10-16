@@ -121,3 +121,5 @@ log_sites = "записей {records}, указывают в файл мода {
 log_real_lines = "строки в файле: {lines}"
 log_speed = "{run}: точек {count}, {a} … {b}; {sec} с на игровой месяц"
 log_speed_few = "{run}: точек {count} — мало"
+
+gui_render = "{out}: {w} × {h}"

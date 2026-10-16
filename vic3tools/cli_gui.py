@@ -42,6 +42,21 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     g.add_argument("--limit", type=int, default=30)
     g.set_defaults(func=cmd_textures)
 
+    g = gsub.add_parser("render", parents=[common], help="draw the widget at FILE:LINE to PNG without the game "
+                        "(textures, fonts, layout — an approximation; --compare puts a game shot next to it)")
+    g.add_argument("target", nargs="?", help="FILE:LINE")
+    g.add_argument("--type", dest="type_name", help="draw a type by name instead")
+    g.add_argument("--out", type=Path, help="the PNG (default: <cache>/render/<name>.png)")
+    g.add_argument("--lang", dest="text_lang", default="english", help="the language of loc texts (russian…)")
+    g.add_argument("--boxes", action="store_true", help="outline every widget's box")
+    g.add_argument("--items", type=int, default=3, help="items drawn for a list with a datamodel")
+    g.add_argument("--stub", default="000", help="what [ … ] and $ … $ show as (default 000)")
+    g.add_argument("--hide-bound", action="store_true", help="leave out widgets with a bound visible = \"[…]\"")
+    g.add_argument("--canvas", default="1920x1080", help="the parent's size for % sizes (WxH)")
+    g.add_argument("--compare", type=Path, help="a game screenshot to put next to the render")
+    g.add_argument("--crop", help="the area of --compare: x0,y0,x1,y1 in fractions or pixels")
+    g.set_defaults(func=cmd_render)
+
     g = gsub.add_parser("style", parents=[common], help="the look of vanilla's interface counted from its .gui: "
                         "types, templates, formats, fonts, spacing, textures in use (the base of a GUI style file)")
     g.add_argument("--mod", help="count this mod of the set instead of vanilla")
@@ -306,6 +321,56 @@ def cmd_textures(args, cfg) -> int:
         print(f"{row['path']}  {row['size']}  {row['mod']}{also}")
     if len(rows) > args.limit:
         print(f"… +{len(rows) - args.limit} (--limit)")
+    return 0
+
+
+# --- render --------------------------------------------------------------------------------------------------------
+
+
+def cmd_render(args, cfg) -> int:
+    from vic3tools.core import paths as cpaths
+    from vic3tools.gui import render
+
+    si = _open(args, cfg)
+    try:
+        rd = render.Renderer(si, args.text_lang, args.stub, args.items, args.hide_bound)
+        if args.type_name:
+            nd = rd.res.find("type", args.type_name)
+            if nd is None:
+                print(t("def_none", name=args.type_name))
+                return 1
+            name = args.type_name
+        elif args.target:
+            path, line = _target(args.target, si)
+            nd = _widget(path, line)
+            name = f"{path.stem}_{line}"
+        else:
+            print(t("gui_need_target"))
+            return 2
+        cw, _, ch = args.canvas.partition("x")
+        img, box = rd.render(nd, (int(cw), int(ch or 1080)), args.boxes)
+    finally:
+        si.close()
+    if args.compare:
+        from vic3tools import bench
+
+        shot = bench.cut(args.compare, args.crop, (cpaths.cache_dir() / "render_cmp.png"))
+        from PIL import Image
+
+        other = Image.open(shot).convert("RGBA")
+        side = Image.new("RGBA", (img.width + other.width + 8, max(img.height, other.height)), (255, 0, 255, 255))
+        side.alpha_composite(img, (0, 0))
+        side.alpha_composite(other, (img.width + 8, 0))
+        img = side
+    out = args.out or (cpaths.cache_dir() / "render" / f"{name}.png")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out)
+    if args.json:
+        _emit({"png": str(out), "size": [box.w, box.h], "notes": sorted(rd.notes)})
+        return 0
+    print(t("gui_render", out=out, w=round(box.w), h=round(box.h)))
+    for n in sorted(rd.notes)[:10]:
+        print("  " + n)
     return 0
 
 
