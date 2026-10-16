@@ -41,6 +41,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
 | `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
 | `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
+| `v3 lint --triage` | every report, the baseline's too, in groups: new, untriaged, tracked (a `plan`), noise (a `why`) |
 | `v3 lint [MOD]` | check a mod (default: the last of the set): vic3-tiger with the mods before it loaded as dependencies, plus our rules; known reports left out (baseline, suppressions); by file and line. `--file F` — one file, `--no-tiger` — our rules only (about a second), `--key`, `--severity`, `--all`, `--baseline` — accept every current report as known |
 | `v3 bench start / do / shot / diff / stop` | the test bench: the game open in the sandbox VM; `shot NAME --crop x0,y0,x1,y1` sends the mod files changed since (the game in debug mode re-reads them) and takes a screenshot; `diff A B` — what changed; `do "<vic3_ui steps>"` — clicks, hovers, console |
 | `v3 save info / list / get / grep / vars / owners / buildings / companies / goods SAVE` | questions to a text save: indexed once (~10 s for 240 MB) into the cache, then read by pieces — a section or an entry, a country's variables and maps as numbers, who owns the production levels by owner class (with two saves: the gross additions and the transfers), buildings of a type, what companies own, a goods' flows |
@@ -194,15 +195,27 @@ Known reports are kept in the mod's root, so every session and machine shares th
   elsewhere do not bring it back, a new one of the same kind shows; scope reports (`scopes`, `strict-scopes`,
   `modifiers`) match by file and line text alone — their message names the scopes tiger guessed, which shifts when
   other files change;
-- `[[suppress]]` in `v3-lint.toml` — by hand, with a reason: `key` and `file` (globs), `message` and `text`
-  (substrings), `why`.
+- `[[suppress]]` in `v3-lint.toml` — by hand: `key` and `file` (globs), `message` and `text` (substrings), and
+  either `why` — why it is noise — or `plan` — where the real problem is tracked.
+
+A baseline hides reports without saying what they are. `v3 lint --triage` sorts every report (the baseline's too)
+into groups by key and message with the names taken out — count, files, names, the rule's reason — and gives each a
+verdict: **new** (not in the baseline), **untriaged** (only the baseline knows it), **tracked** (`plan`), **noise**
+(`why`). Work the untriaged groups into tracked or noise, then `v3 lint --baseline` shrinks the baseline to what is
+left. Noise needs evidence: the game's own load log (`-debug_mode`) without an error in the mod's files, vanilla doing
+the same, a definition the engine makes itself. The fork, 16.10.2026: 5679 baselined → 2697 noise, 2982 tracked in its
+plan, a baseline of 4 tips.
 
 ```toml
 # v3-lint.toml
 [[suppress]]
 key = "missing-item"
-file = "common/scripted_effects/ld_listing_switch.txt"
-why = "buildings of other mods, checked with has_building_type at run time"
+message = "building type building_company_"
+why = "the engine makes building_company_<key> for every company type; the game logs nothing about them"
+
+[[suppress]]
+key = "modifiers"
+plan = "R12 Л.7: state modifiers in a country's static modifier do nothing"
 
 [[rule]]
 name = "no-debug-log"

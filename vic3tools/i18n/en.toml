@@ -94,6 +94,7 @@ lint_baseline_written = "{count} report(s) accepted as known → {path}"
 lint_head = "{mod}: tiger {tiger}, v3 rules {own}; in the baseline {baselined}, suppressed {suppressed}; shown {shown}"
 lint_more = "… showing {shown} of {total}; --file, --key, --severity or --limit"
 lint_clean = "nothing found"
+lint_triage_head = "{mod}: {groups} group(s); reports: new {new}, untriaged {untriaged}, tracked {tracked}, noise {noise}"
 hook_lint_head = "v3 lint after the edit of {file} (known reports left out):"
 
 bench_step = "step {id}: exit {code}; files in {out}"

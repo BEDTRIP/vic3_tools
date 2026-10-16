@@ -94,6 +94,7 @@ lint_baseline_written = "отчётов принято как известные
 lint_head = "{mod}: tiger {tiger}, правила v3 {own}; в базе известных {baselined}, подавлено {suppressed}; показано {shown}"
 lint_more = "… показано {shown} из {total}; сузить — --file, --key, --severity или --limit"
 lint_clean = "ничего не найдено"
+lint_triage_head = "{mod}: групп {groups}; отчётов: новых {new}, не разобрано {untriaged}, в плане {tracked}, шум {noise}"
 hook_lint_head = "v3 lint после правки {file} (известные отчёты не показаны):"
 
 bench_step = "шаг {id}: код {code}; файлы в {out}"

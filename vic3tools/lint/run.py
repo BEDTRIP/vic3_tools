@@ -7,12 +7,22 @@ Two ways to silence a report, both kept in the mod's root (so every session and 
   elsewhere in the file do not bring it back; each fingerprint keeps a count (scope reports, which tiger deduces
   differently from run to run, match by file and line text only, with no count);
 - ``[[suppress]]`` in ``v3-lint.toml`` — rules by hand: every field given must match (``key`` and ``file`` are
-  globs, ``message`` and ``text`` substrings), with ``why``::
+  globs, ``message`` and ``text`` substrings), with ``why`` — the reason it is noise — or ``plan`` — where the real
+  problem is tracked (then it counts as *tracked*, not as noise)::
 
     [[suppress]]
     key = "missing-item"
-    file = "common/scripted_effects/ld_listing_switch.txt"
-    why = "buildings of other mods, checked with has_building_type at run time"
+    message = "building type building_company_"
+    why = "the engine makes building_company_<company> for every company type; the game logs nothing about them"
+
+    [[suppress]]
+    key = "missing-item"
+    message = "_order_valid"
+    plan = "план.md, П.40: dead E&F order localization"
+
+``v3 lint --triage`` groups every report (the baseline's too) by key and message with the names taken out, and
+says of each group what it is: *new* (not in the baseline), *untriaged* (only the baseline knows it), *tracked*
+(a ``plan``) or *noise* (a ``why``). Triage moves groups from untriaged to tracked or noise; the baseline shrinks.
 
 The same file holds project rules, ``[[rule]]`` with ``name``, ``files`` (globs), ``pattern`` (a regex),
 ``message`` and ``severity``.
@@ -23,6 +33,7 @@ from __future__ import annotations
 import datetime
 import fnmatch
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -44,7 +55,7 @@ FLAKY = {"scopes", "strict-scopes", "modifiers"}
 class Result:
     shown: list[Report] = field(default_factory=list)
     baselined: list[Report] = field(default_factory=list)
-    suppressed: list[tuple[Report, str]] = field(default_factory=list)  # with the rule's why
+    suppressed: list[tuple[Report, dict]] = field(default_factory=list)  # with the rule that hid it
     notes: list[str] = field(default_factory=list)
 
 
@@ -128,7 +139,7 @@ def split(mod: Mod, reports: list[Report], use_baseline: bool = True) -> Result:
     for r in sorted(reports, key=lambda r: (r.path, r.line, SEVERITY.get(r.severity, 9), r.key)):
         hit = next((s for s in sup if _matches(r, s)), None)
         if hit is not None:
-            res.suppressed.append((r, hit.get("why", "")))
+            res.suppressed.append((r, hit))
             continue
         fp = fingerprint(r)
         if left[fp] > 0:
@@ -138,3 +149,60 @@ def split(mod: Mod, reports: list[Report], use_baseline: bool = True) -> Result:
             continue
         res.shown.append(r)
     return res
+
+
+# --- triage -----------------------------------------------------------------------------------------------------------
+
+_NAME = re.compile(r"`[^`]+`|'[^']+'|\b[\w$@.:/-]*[_.:/$@][\w$@.:/-]*\b|\b[A-Z][a-z]+[A-Z]\w*\b")
+
+
+def template(message: str) -> tuple[str, list[str]]:
+    """A message with its names taken out (``X``) and the names: ``building type X not defined in X``."""
+    names = [m.group(0).strip("`'") for m in _NAME.finditer(message)]
+    return re.sub(r"\b\d+\b", "N", _NAME.sub("X", message)), names
+
+
+@dataclass
+class Group:
+    severity: str
+    key: str
+    template: str
+    count: int = 0
+    status: Counter = field(default_factory=Counter)  # new / untriaged / tracked / noise
+    files: Counter = field(default_factory=Counter)
+    names: Counter = field(default_factory=Counter)
+    reasons: Counter = field(default_factory=Counter)  # a rule's why or plan
+
+    @property
+    def verdict(self) -> str:
+        for s in ("new", "untriaged", "tracked", "noise"):
+            if self.status[s]:
+                return s
+        return ""
+
+
+ORDER = {"new": 0, "untriaged": 1, "tracked": 2, "noise": 3}
+
+
+def triage(res: Result) -> list[Group]:
+    """Every report of ``res`` (shown, baselined, suppressed) in groups, the ones still to decide first."""
+    groups: dict[tuple, Group] = {}
+
+    def add(r: Report, status: str, reason: str = "") -> None:
+        tpl, names = template(r.message)
+        g = groups.setdefault((r.severity, r.key, tpl), Group(r.severity, r.key, tpl))
+        g.count += 1
+        g.status[status] += 1
+        g.files[r.path] += 1
+        if names:
+            g.names[names[0]] += 1
+        if reason:
+            g.reasons[reason] += 1
+
+    for r in res.shown:
+        add(r, "new")
+    for r in res.baselined:
+        add(r, "untriaged")
+    for r, rule in res.suppressed:
+        add(r, "tracked" if rule.get("plan") else "noise", rule.get("plan") or rule.get("why", ""))
+    return sorted(groups.values(), key=lambda g: (ORDER.get(g.verdict, 9), SEVERITY.get(g.severity, 9), -g.count))

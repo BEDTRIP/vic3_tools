@@ -61,6 +61,31 @@ def test_baseline_and_suppress(lset):
     assert again.shown == [res.shown[0]]
 
 
+def test_triage_groups_and_verdicts(tmp_path):
+    mod = Mod("m", tmp_path)
+
+    def rep(msg, path="common/x.txt", key="missing-item"):
+        return tiger.Report("error", "", key, msg, path, 1, 0, msg)
+
+    reports = [rep("building type `building_company_A` not defined in common/buildings/"),
+               rep("building type `building_company_B` not defined in common/buildings/"),
+               rep("script value `x_valid` not defined in common/script_values/", "localization/english/a.yml"),
+               rep("required field `limit` missing", key="field-missing"),
+               rep("unknown align Hcenter", "gui/p.gui", "choice")]
+    (tmp_path / "v3-lint.toml").write_text(
+        '[[suppress]]\nkey = "missing-item"\nmessage = "building_company_"\nwhy = "engine-made HQs"\n'
+        '[[suppress]]\nkey = "missing-item"\nfile = "localization/*"\nplan = "R12 L.1"\n', encoding="utf-8")
+    run.write_baseline(mod, [reports[3]])
+    groups = run.triage(run.split(mod, reports))
+    got = [(g.verdict, g.key, g.template, g.count) for g in groups]
+    assert got == [("new", "choice", "unknown align Hcenter", 1),
+                   ("untriaged", "field-missing", "required field X missing", 1),
+                   ("tracked", "missing-item", "script value X not defined in X/", 1),
+                   ("noise", "missing-item", "building type X not defined in X/", 2)]
+    assert dict(groups[-1].names) == {"building_company_A": 1, "building_company_B": 1}
+    assert list(groups[2].reasons) == ["R12 L.1"]
+
+
 def test_flaky_scope_reports_match_both_ways(tmp_path):
     mod = Mod("m", tmp_path)
     a = tiger.Report("warning", "", "scopes", "`prev` produces company but expected country", "f.txt", 1, 0, "x = prev")
