@@ -130,3 +130,41 @@ def test_tiger_parse_and_config(tmp_path):
     write(mod.path / "vic3-tiger.conf", 'load_mod = {\n\tmod = "' + (tmp_path / "dep1").as_posix() + '"\n}\n')
     conf = tiger.config_text(mod, [Mod("dep1", tmp_path / "dep1"), Mod("[1.13] Dep 2", tmp_path / "dep2")])
     assert conf.count("load_mod") == 2 and 'label = "1.13 Dep 2"' in conf
+
+
+def test_tiger_load_order_noise(tmp_path, home):
+    van, m1, m2 = tmp_path / "van" / "game", tmp_path / "m1", tmp_path / "m2"
+    write(van.parent / "launcher" / "launcher-settings.json", '{"rawVersion": "1.13.11"}')
+    write(van / "common/production_methods/14_companies.txt", "pm_hq = {\n}\n")
+    write(van / "common/ideologies/00_ig.txt", "ideology_a = {\n}\n")
+    write(m1 / "common/ideologies/zz_dep.txt", "ideology_dep = {\n}\n")
+    write(m2 / "common/production_methods/11_mine.txt", "REPLACE:pm_hq = {\n}\nREPLACE:pm_none = {\n}\n"
+                                                         "REPLACE:ideology_a = {\n}\n")
+    write(m2 / "common/ideologies/00_ef.txt", "INJECT:ideology_a = {\n}\nINJECT:ideology_dep = {\n}\n")
+    write(m2 / "v3-lint.toml", '[[suppress]]\nkey = "prefixes"\nplan = "broad rule"\n')
+    (home / "vic3tools.toml").write_text(f"[roots]\ngame = '{van.parent.as_posix()}'\n", encoding="utf-8")
+
+    def rep(path, line, text, msg="replacing a non-existing item"):
+        return tiger.Report("error", "strong", "prefixes", msg, path, line, 0, text)
+
+    pm, ide = "common/production_methods/11_mine.txt", "common/ideologies/00_ef.txt"
+    reports = [rep(pm, 1, "REPLACE:pm_hq = {"), rep(pm, 3, "REPLACE:pm_none = {"),
+               rep(pm, 5, "REPLACE:ideology_a = {"),  # defined, but in another folder: a real error
+               rep(ide, 1, "INJECT:ideology_a = {", "injecting into a non-existing item"),
+               rep(ide, 3, "INJECT:ideology_dep = {", "injecting into a non-existing item"),
+               rep("common/game_rules/r.txt", 1, "TRY_REPLACE:rule_x = {", "cannot use prefixes with game rule")]
+    si = query.SetIndex.open(vfs.ModSet.from_dirs([m1, m2]))
+    try:
+        run.tiger_order_noise(si, 2, reports)
+    finally:
+        si.close()
+    assert [bool(r.noise) for r in reports] == [True, False, False, True, True, False]
+    assert "vanilla common/production_methods/14_companies.txt" in reports[0].noise
+    assert "m1 common/ideologies/zz_dep.txt" in reports[4].noise
+    # noise wins over the mod's own rules: it is told apart from what the mod tracks
+    res = run.split(Mod("m2", m2), reports)
+    assert res.shown == [] and len(res.suppressed) == 6
+    groups = {g.template: dict(g.status) for g in run.triage(res)}
+    assert groups == {"replacing a non-existing item": {"tracked": 2, "noise": 1},
+                      "cannot use prefixes with game rule": {"tracked": 1},
+                      "injecting into a non-existing item": {"noise": 2}}

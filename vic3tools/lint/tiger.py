@@ -32,6 +32,7 @@ class Report:
     info: str = ""
     source: str = "tiger"
     also: tuple[str, ...] = ()  # more locations, "path:line"
+    noise: str = ""  # why v3 knows the report is false (set by ``run.collect``): shown as suppressed noise
 
     @property
     def where(self) -> str:

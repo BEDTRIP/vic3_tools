@@ -198,6 +198,12 @@ Known reports are kept in the mod's root, so every session and machine shares th
 - `[[suppress]]` in `v3-lint.toml` — by hand: `key` and `file` (globs), `message` and `text` (substrings), and
   either `why` — why it is noise — or `plan` — where the real problem is tracked.
 
+One kind of tiger's noise `v3 lint` suppresses itself (`--all` and `--triage` show it as noise, with the place of the
+definition): `prefixes` "replacing / injecting into a non-existing item" on a `REPLACE:` / `INJECT:` whose target
+vanilla or a mod before this one defines in the same folder. tiger orders files by name across all mods, so the mod's
+`11_x.txt` comes before vanilla's `14_companies.txt` for it; the engine loads every mod after vanilla, and a file name
+decides the order only inside one mod. A target defined nowhere (or only in another folder) still shows.
+
 A baseline hides reports without saying what they are. `v3 lint --triage` sorts every report (the baseline's too)
 into groups by key and message with the names taken out — count, files, names, the rule's reason — and gives each a
 verdict: **new** (not in the baseline), **untriaged** (only the baseline knows it), **tracked** (`plan`), **noise**

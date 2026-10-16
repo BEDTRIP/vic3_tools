@@ -20,6 +20,12 @@ Two ways to silence a report, both kept in the mod's root (so every session and 
     message = "_order_valid"
     plan = "план.md, П.40: dead E&F order localization"
 
+Some of tiger's reports v3 knows to be false and suppresses itself, as noise with the reason (``--all`` and
+``--triage`` show them): a ``REPLACE:`` / ``INJECT:`` reported as "non-existing item" while vanilla or a mod before
+this one defines the target in the same folder. tiger orders files by name across all mods, so a mod file named
+``11_x.txt`` comes before vanilla's ``14_y.txt`` for it; the engine loads every mod after vanilla, and a file name
+decides the order only inside one mod.
+
 ``v3 lint --triage`` groups every report (the baseline's too) by key and message with the names taken out, and
 says of each group what it is: *new* (not in the baseline), *untriaged* (only the baseline knows it), *tracked*
 (a ``plan``) or *noise* (a ``why``). Triage moves groups from untriaged to tracked or noise; the baseline shrinks.
@@ -75,7 +81,7 @@ def collect(si: SetIndex, mod_i: int, use_tiger: bool = True, refresh: bool = Fa
     project, _sup = rules.project_rules(mod)
     if use_tiger:
         try:
-            out += tiger.run(ms, mod, refresh)
+            out += tiger_order_noise(si, mod_i, tiger.run(ms, mod, refresh))
         except (FileNotFoundError, RuntimeError, OSError) as e:
             notes.append(f"tiger skipped: {e}")
     names = files if files is not None else None
@@ -102,6 +108,31 @@ def collect(si: SetIndex, mod_i: int, use_tiger: bool = True, refresh: bool = Fa
     if files is not None:
         out = [r for r in out if r.path in files]
     return out, notes
+
+
+_PREFIXED = re.compile(r"(REPLACE|INJECT):([\w.\-]+)")
+ORDER_NOISE = ("tiger load-order noise: {where} defines it and loads before this mod (tiger orders files by name "
+               "across mods, the engine loads mods after vanilla)")
+
+
+def tiger_order_noise(si: SetIndex, mod_i: int, reports: list[Report]) -> list[Report]:
+    """Mark tiger's "replacing / injecting into a non-existing item" as noise when the target is defined in the same
+    folder by vanilla or a mod before this one (``reports`` changed in place and returned)."""
+    order = {id(m): i for i, m in enumerate(si.mods)}
+    me = order[id(si.ms.mods[mod_i])]
+    for r in reports:
+        if r.key != "prefixes" or "non-existing item" not in r.message:
+            continue
+        m = _PREFIXED.match(r.text)
+        if not m:
+            continue
+        folder = r.path.rsplit("/", 1)[0]
+        hit = next((h for h in si.defs(m.group(2)) if h.kind == "db" and h.loads and order[id(h.mod)] < me
+                    and h.folder == folder and h.directive in ("", "CREATE", "REPLACE_OR_CREATE", "INJECT_OR_CREATE")),
+                   None)
+        if hit is not None:
+            r.noise = ORDER_NOISE.format(where=f"{hit.mod.name} {hit.rel}")
+    return reports
 
 
 def load_baseline(mod: Mod) -> Counter:
@@ -137,7 +168,7 @@ def split(mod: Mod, reports: list[Report], use_baseline: bool = True) -> Result:
     _rules, sup = rules.project_rules(mod)
     left = load_baseline(mod) if use_baseline else Counter()
     for r in sorted(reports, key=lambda r: (r.path, r.line, SEVERITY.get(r.severity, 9), r.key)):
-        hit = next((s for s in sup if _matches(r, s)), None)
+        hit = {"why": r.noise} if r.noise else next((s for s in sup if _matches(r, s)), None)
         if hit is not None:
             res.suppressed.append((r, hit))
             continue
