@@ -260,11 +260,18 @@ function Ctrl-Click-Window($p, $fx, $fy) {
 # (its top bar, panels, tooltips as for its player) is a Ctrl + click on its land; the observer picks no country by
 # tag, so: "tag <TAG>" (the camera jumps to its capital, in the middle of the window), "observe", Ctrl + click the
 # middle. Checked in the game 16.10.2026 (1.13.11): "observe" alone shows "no country selected"; after "tag" the
-# capital is at the middle of the window.
+# capital is at the middle of the window. "observe" toggles, and while observing "tag" neither leaves observer mode nor
+# moves the camera (r1016_obs4: the second country's "tag GBR", "observe" printed "Ending observe mode", GBR was played;
+# r1016_obs5, "tag GBR" alone: the view stayed on SWI). So from observer mode: "observe" first (back to playing), then
+# as from the start; the state is a global (the ui: steps run in the same session).
+if ($null -eq $global:Vic3Observing) { $global:Vic3Observing = $false }
 function Observe-Country($p, $tag) {
+    if ($global:Vic3Observing -and $tag) { Console-Cmd $p "observe"; Start-Sleep 3; $global:Vic3Observing = $false; $p = Get-Game }
     if ($tag) { Console-Cmd $p "tag $tag"; Start-Sleep 3 }
-    Console-Cmd (Get-Game) "observe"; Start-Sleep 3
-    if ($tag) { Ctrl-Click-Window (Get-Game) 0.5 0.5; Start-Sleep 2; Log "observing $tag" } else { Log "observer mode" }
+    if (-not $global:Vic3Observing) { Console-Cmd (Get-Game) "observe"; Start-Sleep 3; $global:Vic3Observing = $true }
+    $p = Get-Game
+    if (Is-Screen $p "console") { Log "the console is open"; Close-Console $p | Out-Null }
+    if ($tag) { Ctrl-Click-Window $p 0.5 0.5; Start-Sleep 2; Log "observing $tag" } else { Log "observer mode" }
 }
 
 # Console (debug_mode): the key left of 1 (VK_OEM_3, scan 0x29), clear the line
@@ -345,7 +352,9 @@ $Screens = @{
     # budget panel (63, 64, 58) -- 5.10, screenshots of r1005_042928 and r1005_044523
     # and even (spread 3; a state panel or a dark sea 18..61), with the dark input line below it (26, 29, 30): r1005_110005
     # took a state panel for the console, "closed" it with the console key -- which opened it -- and "tag GBR" was lost
-    console = @{ box = @(120, 250, 500, 650); rgb = @(45, 50, 52); tol = 8; flat = 8; box2 = @(30, 745, 520, 775); rgb2 = @(26, 29, 30); tol2 = 8; flat2 = 6 }
+    # the log's lines fill the console from the top: the box sits just above the input line (r1016_obs6: after ~12 lines
+    # the old 250..650 box held text, std 9.3 > 8, the open console was not seen and stayed over the screens)
+    console = @{ box = @(120, 560, 500, 720); rgb = @(39, 44, 45); tol = 8; flat = 8; box2 = @(30, 745, 520, 775); rgb2 = @(26, 29, 30); tol2 = 8; flat2 = 6 }
     # the game menu (Escape with nothing open) -- calibrated on the screenshots of run CAL (5.10)
     # the game menu (Escape with nothing open; "Вернуться к игре" ...): the HUD is gone -- the left icon column turns
     # dark (27, 26, 21), the backdrop under the buttons (39, 34, 29); the game (75, 68, 68) / (57..68), the console

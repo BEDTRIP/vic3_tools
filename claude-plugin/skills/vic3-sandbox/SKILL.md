@@ -54,7 +54,10 @@ a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shot
   while a VM run goes.
 - To see your own window on screen, make it a child of a vanilla window or of `ingame_hud` (a copy of
   `gui/ingame_hud.gui`); a free-standing top-level widget is not drawn.
-- The played country must be a country, not observer mode — GUI commands do not run in observer mode.
+- The played country must be a country, not observer mode — GUI commands do not run in observer mode (checked
+  16.10.2026, r1016_obs4: E&F's GUI money bridge delivered 0 in all 201 lines, against ~97 % nonzero when a country is
+  played). So `-Observe` runs suit "how the game goes", not a mod's GUI-fed numbers. Console: `observe` toggles
+  (a second one ends observer mode); while observing, `tag X` neither ends it nor moves the camera.
 - Keep runs short and targeted; record every finding where the project tracks work (its plan), not only in the answer.
 
 ## Reading what the game said

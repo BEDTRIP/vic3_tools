@@ -64,7 +64,8 @@ Parameters:
                   each instead (nobody plays them either way)
     -Observe      observer mode after loading (console "observe"): nobody plays, the AI runs every country; the view
                   is -Tag's country (its top bar, panels, tooltips); a gone country is no game over there. To step in:
-                  "tag X" plays X, "observe" goes back (vic3_ui.ps1 "observe X")
+                  "observe X" (vic3_ui.ps1) switches the view to X; "observe" toggles; observing, "tag" keeps observer mode and the camera.
+                  The project's GUI hooks do not run here (E&F's money bridge: r1016_obs4, all its numbers 0)
     -OutDir       where to put logs and screenshots (default: %TEMP%\vic3_sandbox\<timestamp>)
 #>
 param(
