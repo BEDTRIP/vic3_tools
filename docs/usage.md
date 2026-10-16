@@ -52,6 +52,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 gui textures Q` | `.dds` / `.png` files under `gfx/` whose path contains Q, with width × height and the mod whose copy loads |
 | `v3 gui set FILE:LINE KEY=VALUE…` | set properties of the widget around a line: replace at its own level or insert before its `}`; `--find TEXT` picks the widget by key or name, `--dry` shows the change only |
 | `v3 gui fit FILE:LINE` | does the text of a textbox fit its width in all 11 languages: fits, wraps into N lines, shrinks to fontsize N, is cut; `--width N` — what if it were N wide |
+| `v3 gui style` | the look of vanilla's interface counted from its `.gui`: the types and templates used most, text formats with their colours, font sizes, container spacing and margins, textures — each with an example `file:line` (`--out FILE`; the base of a project's GUI style file, skill `vic3-gui`) |
 | `v3 playsets` | the launcher's playsets, the active one marked |
 | `v3 mods` | the mods of a set, in load order |
 | `v3 winner <folder> <key>…` | every definition of a record in load order, what each does (creates, replaces, merges, is ignored, is lost) and which one the game uses; `v3 winner loc <key> --lang russian`, `v3 winner gui <type>` — the same for a localization key and a GUI type |

@@ -210,3 +210,20 @@ def test_font_files_and_fallback(tmp_path):
     assert faces[0].advances == {ord("a"): 600, ord("b"): 400}
     assert fonts.width("abя", faces, 10) == pytest.approx(6 + 4 + 7)
     assert fonts.width("?", faces, 10) == 5  # missing everywhere: half an em
+
+
+def test_style_counts(tmp_path):
+    from vic3tools.gui import style
+
+    write(tmp_path / "gui/shared/t.gui", TYPES)
+    write(tmp_path / "gui/textformatting.gui",
+          'textformatting = {\n\tformat = {\n\t\tname = "title"\n\t\tformat = "grey;shadow"\n\t}\n}\n')
+    write(tmp_path / "gui/p.gui", "window = {\n\tflowcontainer = {\n\t\tspacing = 5\n\t\tmy_header = {}\n"
+                                  "\t\tmy_header = {}\n\t\ttextbox = { using = big default_format = \"#title\" }\n"
+                                  "\t}\n}\n")
+    st = style.collect(tmp_path)
+    assert st.types["my_header"] == 2 and "textbox" not in st.types  # `type textbox = textbox` is a native widget
+    assert st.using["big"] == 2  # the panel and type base_header's `block "text_size"`
+    assert st.spacing["5"] == 1 and st.formats["#title"] == 1 and st.text_formats["title"] == "grey;shadow"
+    md = style.markdown(st)
+    assert "| `my_header` | 2 | gui/p.gui:4 — type = base_header |" in md and "| `#title` | `grey;shadow` |" in md

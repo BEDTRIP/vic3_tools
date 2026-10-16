@@ -42,6 +42,13 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     g.add_argument("--limit", type=int, default=30)
     g.set_defaults(func=cmd_textures)
 
+    g = gsub.add_parser("style", parents=[common], help="the look of vanilla's interface counted from its .gui: "
+                        "types, templates, formats, fonts, spacing, textures in use (the base of a GUI style file)")
+    g.add_argument("--mod", help="count this mod of the set instead of vanilla")
+    g.add_argument("--out", type=Path, help="write the Markdown here (default: print it)")
+    g.add_argument("--top", type=int, default=25)
+    g.set_defaults(func=cmd_style)
+
     g = gsub.add_parser("set", parents=[common], help="set KEY=VALUE on the widget at FILE:LINE (replace at its own "
                         "level or insert before its `}`)")
     g.add_argument("target", help="FILE:LINE, or FILE with --find")
@@ -299,6 +306,24 @@ def cmd_textures(args, cfg) -> int:
         print(f"{row['path']}  {row['size']}  {row['mod']}{also}")
     if len(rows) > args.limit:
         print(f"… +{len(rows) - args.limit} (--limit)")
+    return 0
+
+
+# --- style ---------------------------------------------------------------------------------------------------------
+
+
+def cmd_style(args, cfg) -> int:
+    from vic3tools.gui import style
+
+    ms = mod_set(args, cfg)
+    mod = ms.find(args.mod) if args.mod else ms.mods[0]
+    st = style.collect(mod.path)
+    text = style.markdown(st, args.top)
+    if args.out:
+        args.out.write_text(text, encoding="utf-8")
+        print(t("gui_style_written", path=args.out, files=st.files))
+    else:
+        print(text)
     return 0
 
 
