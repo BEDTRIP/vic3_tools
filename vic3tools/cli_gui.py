@@ -57,6 +57,15 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     g.add_argument("--crop", help="the area of --compare: x0,y0,x1,y1 in fractions or pixels")
     g.set_defaults(func=cmd_render)
 
+    g = gsub.add_parser("names", help="widget names, types and text icons of two mods (or one file in both): shared "
+                        "and only in one — a merged .gui must keep every name of the versions it merges")
+    g.add_argument("a", type=Path, help="a mod folder")
+    g.add_argument("b", type=Path, help="another mod folder")
+    g.add_argument("--file", help="only this relative path in both (gui/…)")
+    g.add_argument("--limit", type=int, default=40)
+    g.add_argument("--json", action="store_true")
+    g.set_defaults(func=cmd_names)
+
     g = gsub.add_parser("style", parents=[common], help="the look of vanilla's interface counted from its .gui: "
                         "types, templates, formats, fonts, spacing, textures in use (the base of a GUI style file)")
     g.add_argument("--mod", help="count this mod of the set instead of vanilla")
@@ -371,6 +380,29 @@ def cmd_render(args, cfg) -> int:
     print(t("gui_render", out=out, w=round(box.w), h=round(box.h)))
     for n in sorted(rd.notes)[:10]:
         print("  " + n)
+    return 0
+
+
+# --- names ---------------------------------------------------------------------------------------------------------
+
+
+def cmd_names(args, cfg) -> int:
+    from vic3tools.gui import names
+
+    for p in (args.a, args.b):
+        if not p.is_dir():
+            raise FileNotFoundError(t("gui_no_file", file=p))
+    res = names.compare(names.identifiers(args.a, args.file), names.identifiers(args.b, args.file))
+    if args.json:
+        _emit(res)
+        return 0
+    for kind, r in res.items():
+        print(t("gui_names", kind=kind, shared=len(r["shared"]), a=args.a.name, na=len(r["only_a"]), b=args.b.name,
+                nb=len(r["only_b"])))
+        for side, name in (("only_a", args.a.name), ("only_b", args.b.name)):
+            if r[side]:
+                shown = ", ".join(r[side][:args.limit]) + (" …" if len(r[side]) > args.limit else "")
+                print(f"  only {name}: {shown}")
     return 0
 
 

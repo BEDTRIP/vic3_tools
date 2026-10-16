@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from vic3tools.compat import audits, conflicts, index, winner
+from vic3tools.compat import audits, conflicts, holes, index, set_audits, winner
 from vic3tools.core import paths, vfs
 from vic3tools.i18n import t
 
@@ -27,8 +27,14 @@ def add_parsers(sub) -> None:
     cli_lint.add_parsers(sub, common)
     cli_bench.add_parsers(sub, common)
 
-    p = sub.add_parser("playsets", help="the launcher's playsets (* — active)")
+    p = sub.add_parser("playsets", help="the launcher's playsets (* — active); --content-load writes the game's "
+                       "content_load.json for one")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--content-load", metavar="PLAYSET", help="write content_load.json with this playset's mods "
+                   "(the game reads its mods from that file, not from the active playset)")
+    p.add_argument("--without", action="append", default=[], help="leave out mods whose name contains this")
+    p.add_argument("--add", action="append", default=[], type=Path, help="a mod folder appended at the end")
+    p.add_argument("--out", type=Path, help="where to write (default: the documents' content_load.json)")
     p.set_defaults(func=cmd_playsets)
 
     p = sub.add_parser("mods", parents=[common], help="the mods of the set, in load order")
@@ -53,12 +59,23 @@ def add_parsers(sub) -> None:
     p.add_argument("--groups", type=Path, help="a groups file (blocks/order); default: each mod of the set")
     p.set_defaults(func=cmd_matrix)
 
-    p = sub.add_parser("audit", parents=[common], help="audits of one mod against its set: replace, stale, loc-dead",
-                       description=audits.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("kind", choices=["replace", "stale", "loc-dead"])
-    p.add_argument("mod", help="the mod: its name in the set or its folder")
+    p = sub.add_parser("audit", parents=[common], help="audits of a mod or the set: replace, stale, loc-dead, dups, "
+                       "vanilla, holes, prestige, events, lawgroups",
+                       description=audits.__doc__ + "\n" + set_audits.__doc__ + "\n" + holes.__doc__,
+                       formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("kind", choices=["replace", "stale", "loc-dead", "dups", "vanilla", "holes", "prestige", "events",
+                                    "lawgroups"])
+    p.add_argument("mod", nargs="?", help="the mod: its name in the set or its folder (replace, stale, loc-dead, "
+                   "dups, vanilla, lawgroups)")
     p.add_argument("--declared", type=Path, help="TOML file of deliberate omissions (replace, stale)")
     p.add_argument("--langs", default="english,russian", help="for loc-dead: languages, comma-separated")
+    p.add_argument("--other", help="lawgroups: the mod to compare with")
+    p.add_argument("--only", choices=["new", "pmg", "companies", "builds", "economy"], help="holes: one section")
+    p.add_argument("--source", help="holes, new: only this mod's content")
+    p.add_argument("--builds", action="append", default=[], help="holes: a mod of the set that is a build "
+                   "(megapack, add-on); repeatable")
+    p.add_argument("--require-pmg", action="append", default=[], help="holes: a method group (glob) every private "
+                   "building must have; repeatable")
     p.add_argument("--limit", type=int, default=60, help="findings shown")
     p.set_defaults(func=cmd_audit)
 
@@ -90,7 +107,26 @@ def _loc(name: str, rel: str, line: int = 0) -> str:
 
 
 def cmd_playsets(args, cfg) -> int:
-    rows = vfs.list_playsets(vfs.launcher_db(paths.resolve_roots(cfg)))
+    roots = paths.resolve_roots(cfg)
+    if args.content_load:
+        # the run scripts' short forms: "vanilla"; "NAME без X" / "NAME without X"; "NAME + FOLDER" (Documents/…/mod)
+        spec, _, extra = args.content_load.partition(" + ")
+        spec, _, drop = spec.partition(" без ") if " без " in spec else spec.partition(" without ")
+        without = args.without + ([drop] if drop else [])
+        if spec == "vanilla":
+            name, mods = "vanilla", []
+        else:
+            name, mods = vfs.playset_mods(vfs.launcher_db(roots), spec)
+        dirs = [Path(d) for n, d, _s in mods if not any(w.casefold() in n.casefold() for w in without)]
+        if extra:
+            dirs.append(roots["documents"].path / "mod" / extra)
+        dirs += [Path(a).resolve() for a in args.add]
+        out = args.out or (roots["documents"].path / "content_load.json")
+        data = {"enabledMods": [{"path": str(d)} for d in dirs], "disabledDLC": [], "enabledUGC": []}
+        out.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        print(t("playsets_content_load", path=out, name=name, count=len(dirs)))
+        return 0
+    rows = vfs.list_playsets(vfs.launcher_db(roots))
     if args.json:
         _emit([{"name": n, "active": a} for n, a in rows])
     else:
@@ -236,7 +272,14 @@ def cmd_matrix(args, cfg) -> int:
 
 def cmd_audit(args, cfg) -> int:
     ms = mod_set(args, cfg)
+    if args.kind in ("holes", "prestige", "events"):
+        return _set_audit(args, ms)
+    if not args.mod:
+        print(t("audit_need_mod", kind=args.kind))
+        return 2
     target = ms.find(args.mod)
+    if args.kind in ("dups", "vanilla", "lawgroups"):
+        return _mod_audit(args, ms, target)
     if target not in ms.mods:
         ms.mods.append(target)
     mod_i = ms.mods.index(target)
@@ -262,3 +305,116 @@ def cmd_audit(args, cfg) -> int:
         print(f"  … +{len(live) - args.limit} (--limit)")
     return 1 if live else 0
 
+
+
+def _mod_audit(args, ms: vfs.ModSet, target: vfs.Mod) -> int:
+    if args.kind == "lawgroups":
+        if not args.other:
+            print(t("audit_need_other"))
+            return 2
+        other = ms.find(args.other)
+        a, b = set_audits.lawgroups(target), set_audits.lawgroups(other)
+        only_a, only_b = sorted(set(a) - set(b)), sorted(set(b) - set(a))
+        if args.json:
+            _emit({"only_" + target.name: {g: a[g] for g in only_a}, "only_" + other.name: {g: b[g] for g in only_b}})
+            return 0
+        print(t("audit_lawgroups", a=target.name, na=len(a), b=other.name, nb=len(b)))
+        for name, only, src in ((target.name, only_a, a), (other.name, only_b, b)):
+            print(f"  only in {name}: {len(only)}")
+            for g in only[:args.limit]:
+                print(f"    {g}  ({', '.join(src[g][:2])})")
+        return 0
+    ix = index.build(target, args.rebuild)
+    if args.kind == "dups":
+        d = set_audits.duplicates(ix)
+        if args.json:
+            _emit(d)
+            return 1 if any(d.values()) else 0
+        print(t("audit_dups", mod=target.name, records=len(d["records"]), loc=len(d["loc"]), events=len(d["events"])))
+        for cat, key, where in d["records"][:args.limit]:
+            print(f"  {cat} {key}: {', '.join(where)}")
+        for lang, key, where in d["loc"][:args.limit]:
+            print(f"  loc [{lang}] {key}: {', '.join(where)}")
+        for key, where in d["events"][:args.limit]:
+            print(f"  event {key}: {', '.join(where)}")
+        return 1 if any(d.values()) else 0
+    van = index.build(ms.mods[0], args.rebuild)
+    cats, paths_ = set_audits.against_vanilla(van, ix)
+    if args.json:
+        _emit({"categories": {c: dict(v) for c, v in cats.items()}, "path_overrides": paths_})
+        return 0
+    print(t("audit_vanilla", mod=target.name, paths=len(paths_)))
+    for cat, v in sorted(cats.items(), key=lambda x: -sum(x[1].values()))[:args.limit]:
+        print(f"  {cat:45} " + ", ".join(f"{k} {n}" for k, n in v.most_common()))
+    for rel in paths_[:args.limit]:
+        print(f"  ⇄ {rel}")
+    return 0
+
+
+def _set_audit(args, ms: vfs.ModSet) -> int:
+    if args.kind == "prestige":
+        order = set_audits.prestige(ms)
+        over = {b: v for b, v in order.items() if len(v) > 3}
+        if args.json:
+            _emit({b: [list(x) for x in v] for b, v in order.items()})
+            return 1 if over else 0
+        print(t("audit_prestige", bases=len(order), over=len(over), dead=sum(len(v) - 3 for v in over.values())))
+        for base, v in sorted(over.items()):
+            print(f"  {base}: " + ", ".join(f"{k} ({m})" for k, m, _f in v[:3]) + "  | dead: "
+                  + ", ".join(f"{k} ({m})" for k, m, _f in v[3:]))
+        return 1 if over else 0
+    if args.kind == "events":
+        dup = set_audits.event_ids(ms)
+        if args.json:
+            _emit(dup)
+            return 1 if dup else 0
+        print(t("audit_events", count=len(dup)))
+        for k, where in sorted(dup.items())[:args.limit]:
+            print(f"  {k}: " + "; ".join(where))
+        return 1 if dup else 0
+    srcs = holes.sources(ms)
+    out: dict = {}
+    if args.only in (None, "new"):
+        out["new"] = holes.new_content(srcs, args.source)
+    if args.only in (None, "pmg"):
+        out["pmg"] = holes.eaten(srcs, "pmg")
+    if args.only in (None, "companies"):
+        out["companies"] = holes.eaten(srcs, "companies")
+    if args.only in (None, "builds") and args.builds:
+        out["builds"] = holes.builds_vs_later(srcs, set(args.builds))
+    if args.only in (None, "economy") and args.require_pmg:
+        out["economy"] = holes.outside_economy(srcs, args.require_pmg)
+    if args.json:
+        _emit({k: ([[key, b.label, b.directive, b.file, {x: sorted(w) for x, w in lost.items()}]
+                    for key, b, lost in v] if k in ("pmg", "companies") else v) for k, v in out.items()})
+        return 0
+    print(t("audit_holes_chain", count=len(srcs), chain=" → ".join(s.label for s in srcs[1:])))
+    if "new" in out:
+        print("\n" + t("audit_holes_new"))
+        for label, rows in out["new"].items():
+            print(f"  {label}: {len(rows)}")
+            for cat, key, d, who in rows[:args.limit]:
+                print(f"    {cat.removeprefix('common/'):22} {key:44} [{d or 'bare'}]  "
+                      + (", ".join(who) if who else t("audit_holes_nobody")))
+    for kind in ("pmg", "companies"):
+        if kind in out:
+            print("\n" + t(f"audit_holes_{kind}", count=len(out[kind])))
+            for key, last, lost in out[kind][:args.limit]:
+                print(f"  {key}  ← {last.label} {last.directive or 'bare'} ({last.file})")
+                for x, who in sorted(lost.items()):
+                    print(f"      - {x:46} [{', '.join(sorted(who))}]")
+    if "builds" in out:
+        print("\n" + t("audit_holes_builds"))
+        for build, per in out["builds"].items():
+            print(f"  {build}")
+            for other, hits in per.items():
+                print(f"    × {other}: {sum(len(v) for v in hits.values())}")
+                for cat, keys in sorted(hits.items()):
+                    print(f"        {cat.removeprefix('common/')}: {', '.join(sorted(keys)[:12])}"
+                          + (" …" if len(keys) > 12 else ""))
+    if "economy" in out:
+        print("\n" + t("audit_holes_economy", count=len(out["economy"]), groups=", ".join(args.require_pmg)))
+        for label, key, missing, owners in out["economy"][:args.limit]:
+            print(f"  {key:46} lacks {', '.join(missing):40} [{label}]  companies: "
+                  + (", ".join(owners) if owners else t("audit_holes_nobody")))
+    return 0
