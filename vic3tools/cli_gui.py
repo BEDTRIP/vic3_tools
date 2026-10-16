@@ -52,7 +52,7 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     g.add_argument("--items", type=int, default=3, help="items drawn for a list with a datamodel")
     g.add_argument("--stub", default="000", help="what [ … ] and $ … $ show as (default 000)")
     g.add_argument("--hide-bound", action="store_true", help="leave out widgets with a bound visible = \"[…]\"")
-    g.add_argument("--canvas", default="1920x1080", help="the parent's size for % sizes (WxH)")
+    g.add_argument("--canvas", default="1920x1080", help="the parent's size for %% sizes (WxH)")
     g.add_argument("--compare", type=Path, help="a game screenshot to put next to the render")
     g.add_argument("--crop", help="the area of --compare: x0,y0,x1,y1 in fractions or pixels")
     g.set_defaults(func=cmd_render)
