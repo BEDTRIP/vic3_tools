@@ -68,7 +68,8 @@ The token stays `${PC_BRIDGE_TOKEN}` in the file and is filled from the environm
 the setup script itself sees none of the environment's variables (checked 16.10: `PC_BRIDGE_TOKEN unset` in its log
 while the session had it), so it cannot register the server with the token itself. A change of the setup script's
 text (a comment will do) drops the cached environment. What the script did is in `~/vic3tools-cloud-setup.log` of the
-session (user, which variables it saw, which repos were there, each step). Every step may fail without stopping the session. The environment is
+session (user, which variables it saw, which repos were there, each step). Checked 16.10 in a session with three repos: the `mcp__vic3-pc__*` tools
+were there and `v3 def` through the bridge answered. Every step may fail without stopping the session. The environment is
 shared by every repo started in it, so `vic3_mods` and the fork both get the plugin. `vic3_mods`' own SessionStart
 hook (`.claude/hooks/session-start.sh`, pip packages for its tools) stays as it is.
 
