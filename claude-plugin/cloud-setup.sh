@@ -5,7 +5,7 @@
 # are ignored there) nor from the user's ~/.claude on the PC; the documented way is to install them before Claude
 # starts, in the cloud environment's *setup script* (claude.ai/code -> environment -> Setup script). Put there:
 #
-#   curl -fsSL https://raw.githubusercontent.com/BEDTRIP/vic3_tools/main/claude-plugin/cloud-setup.sh | bash || true
+#   curl -fsSL "https://raw.githubusercontent.com/BEDTRIP/vic3_tools/main/claude-plugin/cloud-setup.sh?$(date +%s)" | bash || true
 #
 # The script runs as root on Ubuntu before Claude Code launches; its result is cached with the environment (about
 # a week, or until the setup script changes). Every step is optional: a failure is reported and the session starts.

@@ -56,7 +56,7 @@ The documented way is the cloud environment's **setup script** (claude.ai/code â
 it runs as root before Claude Code starts and is cached with the environment for about a week). One line there:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/BEDTRIP/vic3_tools/main/claude-plugin/cloud-setup.sh | bash || true
+curl -fsSL "https://raw.githubusercontent.com/BEDTRIP/vic3_tools/main/claude-plugin/cloud-setup.sh?$(date +%s)" | bash || true
 ```
 
 [`cloud-setup.sh`](cloud-setup.sh) installs the `v3` package (`pip`, from a checkout of `vic3_tools` attached to the
