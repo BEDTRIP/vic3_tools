@@ -12,7 +12,7 @@ import platform
 import sys
 from pathlib import Path
 
-from vic3tools import __version__, cli_compat, cli_log, cli_save, docs_check, glossary
+from vic3tools import __version__, cli_compat, cli_log, cli_release, cli_save, docs_check, glossary
 from vic3tools.core import paths
 from vic3tools.i18n import set_lang, t
 
@@ -49,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     cli_compat.add_parsers(sub)
     cli_save.add_parsers(sub)
     cli_log.add_parsers(sub)
+    cli_release.add_parsers(sub)
 
     p = sub.add_parser("hook", help="Claude Code hooks (reads the hook's JSON on stdin)")
     hsub = p.add_subparsers(dest="hook_event", required=True, metavar="<event>")

@@ -28,6 +28,8 @@ file:line and what the game actually takes. Use it where it helps; `v3 <command>
 - Check: `lint` (tiger + own rules, known reports left out), `audit replace|stale|loc-dead|dups|…`, `conflicts`,
   `mods`, `playsets`.
 - Saves and logs: `save` (a save, read by pieces), `log` (record families, two runs compared, speed, `log profile`).
+- Release: `release check|build|done MOD` (Workshop: clean build, change note, description, SteamCMD VDF), `release
+  zip` (a set for one game version); `mods snapshot|history|diff` (the set's mods' versions kept in git).
 - The game: `bench` (the game open in the sandbox VM: edit → shot). Another set: `--playset NAME`, `--mods DIR…`."""
 
 

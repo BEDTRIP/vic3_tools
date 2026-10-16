@@ -63,6 +63,8 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 gui style` | the look of vanilla's interface counted from its `.gui`: the types and templates used most, text formats with their colours, font sizes, container spacing and margins, textures — each with an example `file:line` (`--out FILE`; the base of a project's GUI style file, skill `vic3-gui`) |
 | `v3 playsets` | the launcher's playsets, the active one marked |
 | `v3 mods` | the mods of a set, in load order |
+| `v3 mods snapshot / history MOD / diff MOD [A B]` | the set's mods kept in git (`<tool home>/mod_history`): a commit per new version, the changes between two (`--vanilla`: the game's text folders too) |
+| `v3 release check / build / done MOD`, `v3 release zip` | get a mod ready for the Steam Workshop: checks, a clean build, change note, description, SteamCMD VDF; a set as a zip |
 | `v3 winner <folder> <key>…` | every definition of a record in load order, what each does (creates, replaces, merges, is ignored, is lost) and which one the game uses; `v3 winner loc <key> --lang russian`, `v3 winner gui <type>` — the same for a localization key and a GUI type |
 | `v3 conflicts <A> <B>` | what two mods (or two groups, `--groups`) both define: record keys by folder, file paths, localization keys, GUI types, event ids — with `file:line` on both sides |
 | `v3 matrix` | the same counted for every pair of mods of the set (or of groups, `--groups`) |
@@ -302,6 +304,27 @@ of the bench are read with `get_image('bench/<step>/<name>.png')`.
 The Claude Code plugin (skills and hooks) is installed in a cloud session by the environment's setup script
 (`claude-plugin/cloud-setup.sh`; a repo's `.claude/settings.json` cannot enable plugins in the cloud) — see
 `claude-plugin/README.md`, «Cloud sessions».
+
+### Release to the Workshop
+
+`v3 release check MOD` says what would go wrong: the metadata, the preview (≤ 1 MB), the game version, dependencies
+missing from the playset, what the build leaves out, the description (≤ 8000 characters, its images and links), a
+version already tagged, `v3 lint`. `v3 release build MOD --version V` makes a clean copy in `<tool home>/release/<mod>/<V>`:
+only the game's folders, `.metadata` and the preview, from a git checkout only what is committed at HEAD (no `docs/`,
+`_archive/`, `_to_delete/`, `*.md`, scripts); beside it `changenote.txt` (a draft from the commits since the last
+`release/*` tag that touch the build — edit it), `description.<en|ru>.bbcode` and two VDFs for SteamCMD:
+`upload.vdf` (content, preview, title, change note; a new item starts private) and `upload_with_description.vdf` (the
+same + the English description — only after the diff the build prints is approved). The user runs
+`steamcmd +login <user> +workshop_build_item "<vdf>" +quit`; the Russian description is pasted on the item's page.
+Then `v3 release done MOD --version V [--workshop-id N] [--with-description]` records the item's ID and the published
+description in the mod.
+
+The mod's release data is a key `vic3tools` in `.metadata/metadata.json` (left out of the uploaded copy):
+`workshop_id`, `links` (name → `workshop:<id>`, `collection:<id>` or a URL). The description template is
+`docs/workshop/description.<lang>.bbcode`: `{img:name}` is `docs/workshop/img/<name>.png` as a raw GitHub URL pinned
+to the tag `release/<V>` (push the tag before the upload), `{link:name}`, `{version}`, `{game_version}`. A collection
+is a Workshop item too (same URL form); it holds no load order — `v3 release zip [--playset NAME]` packs a ready set
+for one game version (the mods' clean folders + `README.txt` with the order).
 
 ### Saves and logs
 

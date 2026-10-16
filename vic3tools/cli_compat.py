@@ -37,7 +37,14 @@ def add_parsers(sub) -> None:
     p.add_argument("--out", type=Path, help="where to write (default: the documents' content_load.json)")
     p.set_defaults(func=cmd_playsets)
 
-    p = sub.add_parser("mods", parents=[common], help="the mods of the set, in load order")
+    p = sub.add_parser("mods", parents=[common], help="the mods of the set, in load order; snapshot / history / "
+                       "diff — the set's mods' versions kept in git")
+    p.add_argument("action", nargs="?", choices=["list", "snapshot", "history", "diff"], default="list",
+                   help="list (default); snapshot — commit each changed mod to the history; history MOD; "
+                   "diff MOD [A B] — what changed between two snapshots (default: the last two)")
+    p.add_argument("args", nargs="*", help="for history / diff: the mod (name or history folder), commits")
+    p.add_argument("--vanilla", action="store_true", help="snapshot: the game's text folders too")
+    p.add_argument("--full", action="store_true", help="diff: the lines, not just the files")
     p.set_defaults(func=cmd_mods)
 
     p = sub.add_parser("winner", parents=[common],
@@ -136,6 +143,8 @@ def cmd_playsets(args, cfg) -> int:
 
 
 def cmd_mods(args, cfg) -> int:
+    if args.action != "list":
+        return _mod_history(args, cfg)
     ms = mod_set(args, cfg)
     if args.json:
         _emit({"source": ms.source, "mods": [{"name": m.name, "kind": m.kind, "path": m.path} for m in ms.mods]})
@@ -418,3 +427,41 @@ def _set_audit(args, ms: vfs.ModSet) -> int:
             print(f"  {key:46} lacks {', '.join(missing):40} [{label}]  companies: "
                   + (", ".join(owners) if owners else t("audit_holes_nobody")))
     return 0
+
+
+def _mod_history(args, cfg) -> int:
+    from vic3tools import mod_history as mh
+
+    repo = mh.repo_dir()
+    if args.action == "snapshot":
+        ms = mod_set(args, cfg)
+        roots = paths.resolve_roots(cfg)
+        game = roots["game"].path if roots["game"].ok else None
+        gv = paths.game_version(game) if game else None
+        mods = [(m.name, m.path) for m in ms.mods if m.kind not in ("engine", "vanilla")]
+        snaps = mh.snapshot(mods, game, gv, args.vanilla, repo)
+        new = [s for s in snaps if s.changed]
+        print(t("history_snapshot", repo=repo, mods=len(snaps), new=len(new), game=gv or "?"))
+        for s in new:
+            print(t("history_new", name=s.name, version=s.version, files=s.changed, folder=s.folder))
+        return 0
+    if not args.args:
+        print(t("history_need_mod"))
+        return 2
+    if not (repo / ".git").is_dir():
+        print(t("history_none", repo=repo))
+        return 1
+    folder = mh.find_folder(repo, args.args[0])
+    if folder is None:
+        print(t("history_no_mod", mod=args.args[0]))
+        return 1
+    if args.action == "history":
+        for line in mh.history(repo, folder):
+            print(line)
+        return 0
+    a = args.args[1] if len(args.args) > 1 else None
+    b = args.args[2] if len(args.args) > 2 else None
+    out = mh.diff(repo, folder, a, b, stat=not args.full)
+    print(out.rstrip() if out else t("history_one_snapshot", mod=args.args[0]))
+    return 0
+
