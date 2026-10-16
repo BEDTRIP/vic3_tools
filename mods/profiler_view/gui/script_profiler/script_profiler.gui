@@ -1,0 +1,85 @@
+﻿# LD Profiler View: the script profiler full-screen for measurement runs (tools/ld_profiler_view/README.md).
+vbox = {
+	name = "script_profiler"
+	minimumsize = { 1880 1000 }
+	layoutpolicy_horizontal = expanding
+	layoutpolicy_vertical = expanding
+	spacing = 2
+
+	hbox = {
+		size = { 0 24 }
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = fixed
+		spacing = 8
+		button = { size = { 60 22 } onclick = "[ScriptProfilerGui.SelectRoot]" editor_textbox = { size = { 60 22 } raw_text = "root" } }
+		button = { size = { 60 22 } onclick = "[ScriptProfilerGui.SelectEdge]" editor_textbox = { size = { 60 22 } raw_text = "edge" } }
+		editor_textbox = { autoresize = yes raw_text = "capture [ScriptProfilerGui.GetCaptureTime|1] s, frames [ScriptProfilerGui.GetCapturedFrames], ticks [ScriptProfilerGui.GetCapturedTicks], samples [ScriptProfilerGui.GetCapturedSamples]" }
+		widget = { layoutpolicy_horizontal = expanding }
+	}
+	hbox = {
+		size = { 0 24 }
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = fixed
+		spacing = 8
+		editor_textbox = { autoresize = yes raw_text = "CURRENT: [ScriptProfilerGui.GetCurrentEntry.GetType] | [ScriptProfilerGui.GetCurrentEntry.GetShortDescription] | [ScriptProfilerGui.GetCurrentEntry.GetFileNameAndLine] | incl [ScriptProfilerGui.GetCurrentEntry.GetTotalTimeInclusive|3] s | excl [ScriptProfilerGui.GetCurrentEntry.GetTotalTimeExclusive|3] s | calls [ScriptProfilerGui.GetCurrentEntry.GetCallCount]" }
+		widget = { layoutpolicy_horizontal = expanding }
+	}
+	hbox = {
+		size = { 0 22 }
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = fixed
+		editor_textbox = { size = { 120 22 } raw_text = "type" }
+		editor_textbox = { size = { 960 22 } raw_text = "callee" }
+		editor_textbox = { size = { 340 22 } raw_text = "file:line" }
+		editor_textbox = { size = { 120 22 } align = right raw_text = "incl, s" }
+		editor_textbox = { size = { 120 22 } align = right raw_text = "excl, s" }
+		editor_textbox = { size = { 120 22 } align = right raw_text = "calls" }
+		widget = { layoutpolicy_horizontal = expanding }
+	}
+	fixedgridbox = {
+		layoutpolicy_horizontal = expanding
+		layoutpolicy_vertical = expanding
+		alwaystransparent = no
+		addcolumn = 1860
+		addrow = 22
+		datamodel = "[ScriptProfilerGui.GetCurrentEntryChildren]"
+		item = {
+				button = {
+					size = { 1860 22 }
+					onclick = "[ScriptProfilerEntry.Select]"
+					hbox = {
+						editor_textbox = { size = { 120 22 } text = "[ScriptProfilerEntry.GetType]" }
+						editor_textbox = { size = { 960 22 } text = "[ScriptProfilerEntry.GetShortDescription]" }
+						editor_textbox = { size = { 340 22 } text = "[ScriptProfilerEntry.GetFileNameAndLine]" }
+						editor_textbox = { size = { 120 22 } align = right text = "[ScriptProfilerEntry.GetTotalTimeInclusive|3]" }
+						editor_textbox = { size = { 120 22 } align = right text = "[ScriptProfilerEntry.GetTotalTimeExclusive|3]" }
+						editor_textbox = { size = { 120 22 } align = right text = "[ScriptProfilerEntry.GetCallCount]" }
+						widget = { layoutpolicy_horizontal = expanding }
+					}
+				}
+		}
+	}
+	editor_textbox = { size = { 600 22 } raw_text = "callers:" }
+	fixedgridbox = {
+		layoutpolicy_horizontal = expanding
+		alwaystransparent = no
+		addcolumn = 1860
+		addrow = 22
+		datamodel = "[ScriptProfilerGui.GetCurrentEntryParents]"
+		item = {
+				button = {
+					size = { 1860 22 }
+					onclick = "[ScriptProfilerEntry.Select]"
+					hbox = {
+						editor_textbox = { size = { 120 22 } text = "[ScriptProfilerEntry.GetType]" }
+						editor_textbox = { size = { 960 22 } text = "[ScriptProfilerEntry.GetShortDescription]" }
+						editor_textbox = { size = { 340 22 } text = "[ScriptProfilerEntry.GetFileNameAndLine]" }
+						editor_textbox = { size = { 120 22 } align = right text = "[ScriptProfilerEntry.GetTotalTimeInclusive|3]" }
+						editor_textbox = { size = { 120 22 } align = right text = "[ScriptProfilerEntry.GetTotalTimeExclusive|3]" }
+						editor_textbox = { size = { 120 22 } align = right text = "[ScriptProfilerEntry.GetCallCount]" }
+						widget = { layoutpolicy_horizontal = expanding }
+					}
+				}
+		}
+	}
+}

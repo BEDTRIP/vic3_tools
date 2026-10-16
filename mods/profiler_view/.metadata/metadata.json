@@ -1,0 +1,10 @@
+{
+  "name": "LD Profiler View",
+  "id": "com.github.BEDTRIP.LedgerdemainProfilerView",
+  "version": "0.0.1",
+  "supported_game_version": "1.13.*",
+  "short_description": "Measurement only: the script profiler window (Script.Profiling.Gui) full-screen, with full names and times. Not for play.",
+  "tags": [],
+  "relationships": [],
+  "game_custom_data": { "multiplayer_synchronized": true }
+}

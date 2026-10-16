@@ -268,6 +268,20 @@ The order is by gain per effort. "Where" is what is needed to work: the cloud ca
 | 9 | **GUI render** | `.gui` → PNG without the game: layout (`flowcontainer`, `hbox`/`vbox`, `layoutpolicy`, anchors, `scrollarea`), `.dds`, frames and frame slicing, fonts, stubs in place of `[…]`; comparing with the game's snapshots through the bridge **Done 2026-10-16:** `v3 gui render` (`vic3tools/gui/render.py`): the resolved widget laid out — sizes in px / % / `@constants`, min / max, `autoresize`, anchors and offsets, `flowcontainer`, `hbox` / `vbox` with `expand` and expanding policies, `scrollarea` clipping, lists repeated from `item` — and painted with Pillow: `.dds` / `.png` of the set (all vanilla formats decode), 9-slice by `spriteborder`, frames, tint, alpha, mirror; text with the game's font files per language and glyph fallbacks, the colour of `default_format`, align, wrap, elide; `--compare` + `--crop` against a game shot. Checked on the stage-3 probe window: within a few pixels of the game. Not drawn: `modify_texture`, shaders, animations, text icons | PC (vanilla textures on the spot); from the cloud — through the bridge |
 | 10 | **GUI rules for CWTools** (optional) | `.cwt` for widgets, generated from the corpus of vanilla `.gui`; give them to `cwtools-vic3-config` | cloud |
 
+**Migration of `vic3_mods/tools` — done 2026-10-16** (after stages 8–9, user's decision). (1) `vic3tools.legacy`
+(`vic3lib`, `ld_pdx`) and `vic3tools.core.merge3`: the generators of both projects import them from the package, the
+old copies deleted; `--check` of all 60 generators gave the same output before and after. (2) The common scripts
+became commands: `v3 audit holes / dups / vanilla / prestige / events / lawgroups`, `v3 gui names`, `v3 playsets
+--content-load` (with the run script's grammar "<playset> without X + FOLDER"), `v3 save`, `v3 log`; 27 scripts
+deleted, outputs compared with the old ones on the project's set. (3) The fork's analyses and generators (88 scripts,
+`data/`, `ef48_report/`, the probes) moved to the fork's `tools/`. (4) The game scripts moved to `bridge/game` — what
+a project adds is its `vic3_hooks.ps1` (the fork's: its log lines into `eflog.txt`, `event zz_ef_logs.1` after
+loading, a gone country's heir, the `-Shots` screens, its points file); the PC bridge moved to `bridge/pc` with a
+project's `bridge.toml` (repos, live mods, hooks, allowed scripts, extra roots); `ld_install_mod` / `ld_pc_git_pull`
+became the bridge tools `install_mod` / `pull_repos`; the profiler view mod is `mods/profiler_view`. Checked: a
+1-minute VM run through the new bridge with the fork's hooks (exit 0, `eflog.txt` gathered, the log event sent). Left
+in `vic3_mods/tools`: the compatibility-patch generators, addon builds, `blocks.json`, the bridge client.
+
 After each stage — a measurement on the six reference tasks T1–T6; moving scripts from `vic3_mods` only with a test and
 `--help`, the old copy is deleted in the same commit.
 

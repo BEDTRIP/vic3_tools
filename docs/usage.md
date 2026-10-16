@@ -237,17 +237,24 @@ v3 bench stop
 ```
 
 Each step takes ~30 s (PowerShell Direct, a task in the guest's session). Shots and steps are in `<cache>/bench/`.
-The game's run scripts (`run_vic3_sandbox.ps1`, `vic3_ui.ps1`) are the project's: `[bench] scripts = '<folder>'` in
+The game scripts are `bridge/game` of this repo (`run_vic3_sandbox.ps1`, `vic3_ui.ps1`); what a project adds (its
+mod's log lines, commands after loading, screens) is its `vic3_hooks.ps1`: `[bench] hooks = '<folder>'` in
 `vic3tools.toml`; `[bench] vm` names another VM. Cutting and comparing need Pillow: `pip install vic3tools[img]`.
 A free-standing top-level widget of a mod is not drawn on screen: to show a probe window, put it into `ingame_hud`
 (a copy of `gui/ingame_hud.gui` with the widget as its last child).
 
 ### From a cloud session: the bridge
 
-A cloud session has no game files; the PC bridge (`vic3_mods/tools/pc_bridge`, an MCP server over a tunnel) has a
-tool `v3(args)` that runs a `v3` command on the PC and returns its output (`vic3tools/bridge.py`). Read-only commands
-and the bench only: `gui set` only with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud
-edits its own clone and pushes. Shots of the bench are read with the bridge's `get_image('bench/<step>/<name>.png')`.
+A cloud session has no game files; the PC bridge (`bridge/pc/server.py`, an MCP server over a tunnel) does on the
+PC what needs the PC. A project describes itself in a `bridge.toml` (its repos and branches, the live mod, its hooks,
+its allowed Python tools, more readable folders; the format is at the top of `server.py`) and starts it with
+`bridge/pc/start.ps1 -Config <bridge.toml> [-Vm]` (ngrok, a venv, a token on first start). Tools: `checkout` /
+`checkout_fork` (a pushed branch into a worktree of the bridge), `sync_mod` / `sync_fork` / `install_mod` (the live
+mod folder), `start_run` / `run_status` / `stop_run` (the game scripts with the project's hooks, on the PC or with
+`-Vm` in the sandbox VM), `list_dir` / `read_text` / `grep` / `get_image`, `py_tool`, `pull_repos`, `wt_diff`, and
+`v3(args)` — a `v3` command on the PC (`vic3tools/bridge.py`). Read-only commands and the bench only: `gui set` only
+with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud edits its own clone and pushes. Shots
+of the bench are read with `get_image('bench/<step>/<name>.png')`.
 
 ### Saves and logs
 

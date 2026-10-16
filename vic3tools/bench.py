@@ -5,9 +5,10 @@ leaves it paused; ``step`` sends the mod files changed since (the game in debug 
 ``vic3_ui.ps1`` steps in the guest's session (shots, clicks, hovers, console); ``shot`` is a step that takes a
 screenshot, cut to a region; ``diff`` tells what changed between two shots; ``stop`` closes the game.
 
-The VM side is ``bridge/vm/Invoke-SandboxRun.ps1`` of this repo; the game's scripts (``run_vic3_sandbox.ps1``,
-``vic3_ui.ps1``) are the project's, found by ``[bench] scripts`` in ``vic3tools.toml``. Shots live in
-``<cache>/bench/<step>/``. Cutting and comparing images needs Pillow (``pip install vic3tools[img]``).
+The VM side is ``bridge/vm/Invoke-SandboxRun.ps1`` and the game scripts are ``bridge/game`` of this repo; a project's
+hooks (its mod's log lines, commands after loading, screens) come from
+``[bench] hooks = '<folder with vic3_hooks.ps1>'`` in ``vic3tools.toml``. Shots live in ``<cache>/bench/<step>/``.
+Cutting and comparing images needs Pillow (``pip install vic3tools[img]``).
 """
 
 from __future__ import annotations
@@ -41,12 +42,12 @@ def bench_dir() -> Path:
     return d
 
 
+GAME_SCRIPTS = Path(__file__).resolve().parents[1] / "bridge" / "game"
+
+
 def scripts_dir(cfg: paths.Config) -> Path:
-    v = cfg.get("bench", "scripts")
-    if not v:
-        raise FileNotFoundError("the game's run scripts are not set: [bench] scripts = '<folder with "
-                                "run_vic3_sandbox.ps1 and vic3_ui.ps1>' in vic3tools.toml")
-    p = Path(v)
+    """The game scripts: ``[bench] scripts`` if a project has its own, else this repo's ``bridge/game``."""
+    p = Path(cfg.get("bench", "scripts") or GAME_SCRIPTS)
     if not (p / "vic3_ui.ps1").is_file():
         raise FileNotFoundError(f"no vic3_ui.ps1 in {p} ([bench] scripts)")
     return p
@@ -64,6 +65,9 @@ def _run(cfg: paths.Config, script: str, params: dict, content_load: Path | None
     vm = cfg.get("bench", "vm")
     if vm:
         cmd += ["-Name", vm]
+    hooks = cfg.get("bench", "hooks")
+    if hooks:
+        cmd += ["-HooksDir", str(hooks)]
     content_load = content_load or (bench_dir() / "content_load.json")  # a step sends the mods of the last start
     if content_load.is_file():
         cmd += ["-ContentLoad", str(content_load)]

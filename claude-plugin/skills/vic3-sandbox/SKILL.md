@@ -11,15 +11,22 @@ the user's language.
 ## Where it runs
 
 - **The sandbox VM** (`vic3-sandbox`, Hyper-V with a share of the video card) — the default: the user keeps the PC.
-  `vic3_tools/bridge/vm/Invoke-SandboxRun.ps1 -ScriptDir <the project's run scripts> -Script <script> -OutDir <dir>
-  -ParamsJson <file.json> [-ContentLoad <content_load.json>] [-StartSave <save>] [-FetchSaves]` copies the scripts
-  and the mods (changed files only) into the guest, runs the script in the guest's desktop session and brings the
-  output back. Login: `Invoke-Command -VMName vic3-sandbox -Credential (Import-Clixml
+  `vic3_tools/bridge/vm/Invoke-SandboxRun.ps1 -Script <script> -OutDir <dir> -ParamsJson <file.json>
+  [-HooksDir <the project's hooks>] [-ContentLoad <content_load.json>] [-StartSave <save>] [-FetchSaves]` copies the
+  game scripts (`bridge/game`), the project's hooks and the mods (changed files only) into the guest, runs the script
+  in the guest's desktop session and brings the output back. Login: `Invoke-Command -VMName vic3-sandbox -Credential (Import-Clixml
   "$env:LOCALAPPDATA\vic3tools\vm-cred.xml")`.
 - **On the PC** — the game takes the screen, mouse and keyboard: warn the user first; a script that sends keys must
   check the game window is in front before every key (keys typed into the user's chat happened).
-- **From a cloud session** — through the PC bridge (`vic3-pc` MCP): `v3(["bench", …])`, the project's `start_run`,
-  `get_image`, `read_text`, `grep`.
+- **From a cloud session** — through the PC bridge (`vic3-pc` MCP, `bridge/pc/server.py` with the project's
+  `bridge.toml`): `v3(["bench", …])`, `start_run`, `run_status`, `get_image`, `read_text`, `grep`.
+
+The game scripts are `vic3_tools/bridge/game`: `run_vic3_sandbox.ps1` (load a new game or a save, run N minutes with
+the AI for everyone, console commands, autosaves, screens, gather the logs; `-KeepOpen` leaves the game paused) and
+`vic3_ui.ps1` (steps on the open game: click, hover, key, shot, console, macros). What a project adds — its mod's log
+lines gathered into their own file, console commands after loading, a gone country's heir, the screens of `-Shots` —
+lives in its `vic3_hooks.ps1` (the hooks are listed at the top of `vic3_ui_lib.ps1`): on the PC `$env:VIC3_HOOKS`, in
+the VM `-HooksDir`, for the bench `[bench] hooks = '<folder>'` in `vic3tools.toml`.
 
 ## The test bench: a GUI edit in a running game
 
@@ -33,7 +40,7 @@ v3 bench do "hover 0.42 0.31; wait 2; shot tip"   # vic3_ui steps: click, hover,
 v3 bench stop                          # close and gather the logs
 ```
 
-Needs `[bench] scripts = '<folder with run_vic3_sandbox.ps1 and vic3_ui.ps1>'` in `vic3tools.toml`. Crop the shots:
+The project's hooks: `[bench] hooks = '<folder with vic3_hooks.ps1>'` in `vic3tools.toml`. Crop the shots:
 a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shots and report only what matters.
 
 ## Rules

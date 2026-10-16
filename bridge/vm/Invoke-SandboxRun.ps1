@@ -7,7 +7,9 @@ The host keeps the repos, the mods and the tools; the guest only has Windows, St
 (Initialize-SandboxGuest.ps1). For one run this script:
 
   1. checks the guest answers and the game is not running there;
-  2. copies the *.ps1 files of -ScriptDir to C:\vic3tools\run in the guest;
+  2. copies the *.ps1 files of -ScriptDir (default: bridge\game of this repo, the game scripts) and of -HooksDir (a
+     project's vic3_hooks.ps1 and its points: its mod's log lines, commands after loading, screens) to
+     C:\vic3tools\run in the guest;
   3. mirrors every mod of -ContentLoad (the game's content_load.json format, host paths) into
      C:\vic3tools\mods\<folder> in the guest -- only changed files travel, as one zip -- and writes the guest's
      content_load.json with the guest paths;
@@ -25,11 +27,13 @@ A test bench: a run with "KeepOpen": true leaves the game paused; then -WithGame
 them), takes the steps in the guest's session and brings the screenshots back; "Do": "close" ends it.
 
 .EXAMPLE
-powershell -ExecutionPolicy Bypass -File bridge\vm\Invoke-SandboxRun.ps1 -ScriptDir ..\vic3_mods\tools `
+powershell -ExecutionPolicy Bypass -File bridge\vm\Invoke-SandboxRun.ps1 -HooksDir ..\my_mod\tools `
     -Script run_vic3_sandbox.ps1 -OutDir C:\runs\r1 -ParamsJson C:\runs\r1.json   # {"RunMinutes": 5, "NewGame": true}
 #>
 param(
-    [Parameter(Mandatory)] [string]$ScriptDir,
+    [string]$ScriptDir = (Join-Path (Split-Path $PSScriptRoot) "game"),
+    # a project's hooks for the game scripts (vic3_hooks.ps1 and the files it uses), copied next to them
+    [string]$HooksDir = "",
     [string]$Script = "run_vic3_sandbox.ps1",
     [Parameter(Mandatory)] [string]$OutDir,
     # the run script's parameters as a JSON object, or a .json file with it (Windows' command line eats the quotes
@@ -99,6 +103,10 @@ try {
     } -ArgumentList $Guest, $RunId
     foreach ($f in Get-ChildItem $ScriptDir -Filter *.ps1) { Copy-Item $f.FullName "$Guest\run\" -ToSession $session }
     Say "scripts: $((Get-ChildItem $ScriptDir -Filter *.ps1).Count) files from $ScriptDir"
+    if ($HooksDir) {
+        foreach ($f in Get-ChildItem $HooksDir -Filter *.ps1) { Copy-Item $f.FullName "$Guest\run\" -ToSession $session }
+        Say "hooks: $((Get-ChildItem $HooksDir -Filter *.ps1).Count) files from $HooksDir"
+    }
 
     # 3. mods: mirror each into the guest, changed files only (by size and write time), extra files removed.
     #    The changed files travel as one zip (.NET writes non-Latin names as UTF-8; Windows tar loses them), and
