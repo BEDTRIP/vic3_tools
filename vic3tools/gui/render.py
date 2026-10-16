@@ -195,6 +195,11 @@ class Renderer:
     def font_size(self, p: dict[str, RNode]) -> float:
         return self.num(self.value(p.get("fontsize")), 0, fit.DEFAULT_SIZE) or fit.DEFAULT_SIZE
 
+    def line_height(self, faces, size: float) -> float:
+        """A text line's height in logical pixels: the font's own line at the whole pixels of the scale."""
+        px = max(1, int(size * self.scale + 1e-6))
+        return (faces[0].line(px) if faces else px * 1.25) / self.scale
+
     def measure(self, size: float) -> float:
         """The size a text is measured at, in logical pixels: the game draws the font at the scaled size cut down to
         whole pixels (15 at ×1.3 is 19 px, not 20 -- checked in the game)."""
@@ -332,7 +337,7 @@ class Renderer:
             lines = [self.elide(ln, faces, self.measure(size), avail) for ln in lines]
         m = self.measure(size)
         tw = max((fonts.width(ln, faces, m) for ln in lines), default=0) if faces else len(text) * size / 2
-        th = len(lines) * m * 1.25
+        th = len(lines) * self.line_height(faces, size)
         b.lines, b.size = lines, size
         if text and faces:
             if len(lines) > own:
@@ -555,7 +560,7 @@ class Renderer:
         px = max(1, int(b.size * s + 1e-6))
         align = self.value(p.get("align"))
         d = ImageDraw.Draw(img)
-        lh = px * 1.25
+        lh = faces[0].line(px)
         top = y + (h - len(b.lines) * lh) / 2  # no vertical align: centred (the engine's default, seen in the game)
         if "top" in align:
             top = y + mt

@@ -133,6 +133,12 @@ def test_cli_grid(rd, tmp_path, capsys):
     assert img.width > 2 * 216 and img.height > 116 + 216  # two columns; a row at ×1 and a row at ×2
 
 
+def test_line_height_from_font_metrics():
+    face = render.fonts.Face(None, 1000, {}, ascent=1030, descent=-300)
+    assert face.line(20) == 21 + 6  # ascent and descent rounded each, as FreeType: 20.6 → 21, 6.0 → 6
+    assert render.fonts.Face(None, 1000, {}).line(10) == 12.5  # no metrics: 1.25 × px
+
+
 def test_nine_slice():
     src = PIL.new("RGBA", (10, 10), (0, 0, 255, 255))
     for x in range(10):

@@ -26,9 +26,19 @@ class Face:
     path: Path
     upem: int
     advances: dict[int, int]  # code point → advance width in font units
+    ascent: int = 0  # hhea, font units (descent is negative)
+    descent: int = 0
 
     def has(self, ch: str) -> bool:
         return ord(ch) in self.advances
+
+    def line(self, px: int) -> float:
+        """A line's height in pixels at ``px``: ascent and descent each rounded, as FreeType does; without the font's
+        metrics, 1.25 × px. Checked against the game (EBGaramond at ×1.3: rows of a long column at the game's
+        places, where 1.25 × px drifted 2 px a row)."""
+        if not self.ascent:
+            return px * 1.25
+        return round(self.ascent * px / self.upem) + round(-self.descent * px / self.upem)
 
 
 @lru_cache(maxsize=32)
@@ -41,12 +51,13 @@ def load_face(path: str) -> Face:
         tables[tag.decode("latin-1")] = (off, length)
     upem = struct.unpack_from(">H", data, tables["head"][0] + 18)[0]
     (n_metrics,) = struct.unpack_from(">H", data, tables["hhea"][0] + 34)
+    ascent, descent = struct.unpack_from(">hh", data, tables["hhea"][0] + 4)
     hm = tables["hmtx"][0]
     widths = [struct.unpack_from(">H", data, hm + 4 * i)[0] for i in range(n_metrics)]
     cmap = _cmap(data, tables["cmap"][0])
     last = widths[-1] if widths else 0
     adv = {cp: (widths[g] if g < n_metrics else last) for cp, g in cmap.items() if g}
-    return Face(Path(path), upem, adv)
+    return Face(Path(path), upem, adv, ascent, descent)
 
 
 def _cmap(data: bytes, base: int) -> dict[int, int]:

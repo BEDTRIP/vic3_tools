@@ -255,8 +255,8 @@ applied at the root.
 Checked at ×1.3 against the same probe window in the game (2026-10-16): sizes and positions scale exactly (a 120 px
 bar is 156 px); the engine cuts a scaled font size down to whole pixels (15 → 19, 16 → 20, 22 → 28), and with that
 the text widths match within 1–3 px and every wrap matches, Russian and English; a text with no vertical `align` is
-centred in its box. The game snaps `GUI.scale` to tenths (1.25 written to the settings became 1.3). Rows still drift
-by a few pixels down a long column (line height is taken as 1.25 × the font size).
+centred in its box. The game snaps `GUI.scale` to tenths (1.25 written to the settings became 1.3). A text line is as high as the font's own ascent + descent at the
+scaled pixels (EBGaramond 20 px: 27, not 1.25 × 20): rows down a long column land within 1 px of the game's.
 
 ### Test bench: `v3 bench`
 
