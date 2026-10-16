@@ -85,6 +85,9 @@ def test_identifier():
     assert hook._search_at(heredoc) is None and hook._search_at('echo "use grep my_var_1"') is None
     assert hook.shell_identifier(heredoc + "\ngrep -n my_var_2 common/") == "my_var_2"
     assert hook._search_at("ls Rg common/") is None
+    # the identifier is looked for in the search's own arguments, not past `&&` or in a heredoc after it
+    assert hook.shell_identifier("grep -n '\"--stub\"' a.py && cat > t.py <<'EOF'\nPANEL = 1\nEOF") is None
+    assert hook.shell_identifier('grep -rn "a|b" common/ | sort') is None  # a | inside quotes is not a pipe
     for p in (r"my_list_\d+", "my_list_N", "my_list_.*"):
         assert hook.identifier(p) == "my_list_*", p
 

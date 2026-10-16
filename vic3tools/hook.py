@@ -184,15 +184,17 @@ def shell_identifier(cmd: str) -> str | None:
     """The first identifier-like argument after the search command in a shell line."""
     m = _search_at(cmd)
     rest = cmd[m.end():] if m else ""
+    # only the search command's own arguments: up to the end of its line or a separator outside quotes
+    blank = _blank(rest, _QUOTED)
+    stop = re.search(r"\n|&&|\|\||[|;]", blank)
+    rest = rest[:stop.start()] if stop else rest
     for t in _TOKEN.finditer(rest):
         tok = next(g for g in t.groups() if g is not None)
-        if tok.startswith("-") or tok in ("|", "&&", ";"):
+        if tok.startswith("-"):
             continue
         name = identifier(tok)
         if name:
             return name
-        if tok in ("|", "&&", ";") or tok.endswith((";", "|")):
-            break
     return None
 
 
