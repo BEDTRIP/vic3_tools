@@ -11,8 +11,9 @@ Progress is checked by the date on screen (debug.log is buffered until the
 game closes, autosaves may be half-yearly): the window must stay visible and
 the date at its top right uncovered; a standing date is unpaused.
 
-The save must be played as a country: in observer mode the game does not run
-GUI commands, so the bridge (and the savings) stay empty.
+-Observe runs the game in observer mode: nobody plays, the AI runs every country -- the base run "how the game goes
+without us". A project whose mod takes numbers from the GUI (a GUI -> script bridge) must check that the bridge still
+works there before trusting such a run.
 
 While it runs the game takes the keyboard focus: do not type or click.
 
@@ -59,7 +60,11 @@ Parameters:
     -Shots        at the end (paused) take the project's screens of the played country (Hook-ShotSteps:
                   vic3_ui.ps1 steps, macros in its points file)
     -Countries    then sit down as these countries in turn ("GBR,USA,RUS"; console "tag") and take the
-                  same screens of each; nothing is played as them, the game stays paused
+                  same screens of each; nothing is played as them, the game stays paused; with -Observe -- observe
+                  each instead (nobody plays them either way)
+    -Observe      observer mode after loading (console "observe"): nobody plays, the AI runs every country; the view
+                  is -Tag's country (its top bar, panels, tooltips); a gone country is no game over there. To step in:
+                  "tag X" plays X, "observe" goes back (vic3_ui.ps1 "observe X")
     -OutDir       where to put logs and screenshots (default: %TEMP%\vic3_sandbox\<timestamp>)
 #>
 param(
@@ -78,6 +83,7 @@ param(
     [switch]$KeepOpen,
     [switch]$Shots,
     [string]$Countries = "",
+    [switch]$Observe,
     [string]$OutDir = ""
 )
 
@@ -130,7 +136,7 @@ if ($Playset) {
 function Sit-Heir($p) {
     Shot $p ("gameover_" + (Get-Date -Format "HHmmss") + ".png")
     Log "game over: $Tag is gone - observer mode, looking for its heir"
-    Click-Window $p 0.13 0.981; Start-Sleep 5
+    Click-Window $p 0.13 0.981 "bl"; Start-Sleep 5
     $p = Get-Game
     if (-not $p) { return $false }
     if (-not (Is-Advancing $p 16)) { Send-Key 0x20 0x39 }
@@ -177,8 +183,8 @@ if ($NewGame) {
     Wait-Screen "goals" 90 4 | Out-Null; Shot $p "00b_goals.png"
     Click-Window $p 0.8665 0.625                                               # Sandbox: start the game
     Wait-Screen "lobby" 180 3 | Out-Null; Shot $p "00c_lobby.png"
-    Click-Window $p 0.25 0.981; Start-Sleep 2                                  # Random country
-    Click-Window $p 0.9215 0.975; Log "new game: starting"                     # Start
+    Click-Window $p 0.25 0.981 "bl"; Start-Sleep 2                             # Random country
+    Click-Window $p 0.9215 0.975 "br"; Log "new game: starting"                # Start
     Wait-Screen "game" 300 8 | Out-Null
     $p = Get-Game
     Console-Cmd $p "tag $Tag"
@@ -190,8 +196,8 @@ if ($NewGame) {
     # государство", "Начать", then "tag" to -Tag (without -Tag the run plays the random country -- logged)
     if ((Wait-Screen @("game", "lobby") $LoadWaitSec 8) -eq "lobby") {
         $p = Get-Game; Shot $p "00c_lobby.png"
-        Click-Window $p 0.25 0.981; Start-Sleep 2
-        Click-Window $p 0.9215 0.975; Log "the save opened in the lobby: a random country, starting"
+        Click-Window $p 0.25 0.981 "bl"; Start-Sleep 2
+        Click-Window $p 0.9215 0.975 "br"; Log "the save opened in the lobby: a random country, starting"
         Wait-Screen "game" 300 8 | Out-Null
         if ($PSBoundParameters.ContainsKey("Tag")) { Console-Cmd (Get-Game) "tag $Tag"; Start-Sleep 5 }
         else { Log "no -Tag: playing the random country of the lobby" }
@@ -214,6 +220,8 @@ foreach ($c in ($Commands -split ';' | ForEach-Object { $_.Trim() } | Where-Obje
     else { Console-Cmd $p $c; Start-Sleep 5; Log "console: $c" }
 }
 
+# -Observe: nobody plays from here (after the project's commands: a console event may need a played country); the view is -Tag's country
+if ($Observe) { Observe-Country $p $Tag; $p = Get-Game; Shot $p "01c_observe.png" }
 # speed 5, unpause; verify by the date on screen, toggle pause once more if it stands
 Focus-Game $p
 Send-Key 0x35 0x06
@@ -292,7 +300,11 @@ if (($Shots -or $Countries) -and (Get-Game)) {
     Reset-UI (Get-Game); Shot (Get-Game) "03b_clean.png"
     $steps = @()
     if ($Shots -and (Get-Command Hook-ShotSteps -ErrorAction SilentlyContinue)) { $own = if ($NewGame) { $Tag } else { "own" }; $steps += (Hook-ShotSteps $own) }
-    foreach ($c in ($Countries -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) { $steps += "country $c" }
+    foreach ($c in ($Countries -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+        if (-not $Observe) { $steps += "country $c"; continue }
+        $steps += "observe $c"
+        if (Get-Command Hook-ShotSteps -ErrorAction SilentlyContinue) { $steps += (Hook-ShotSteps $c) }
+    }
     Log "screens: $($steps -join '; ')"
     try { & (Join-Path $PSScriptRoot "vic3_ui.ps1") -OutDir $OutDir -Do ($steps -join '; ') }
     catch { Log "screens failed: $_" }

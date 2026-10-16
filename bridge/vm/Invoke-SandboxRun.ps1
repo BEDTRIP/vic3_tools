@@ -31,7 +31,7 @@ powershell -ExecutionPolicy Bypass -File bridge\vm\Invoke-SandboxRun.ps1 -HooksD
     -Script run_vic3_sandbox.ps1 -OutDir C:\runs\r1 -ParamsJson C:\runs\r1.json   # {"RunMinutes": 5, "NewGame": true}
 #>
 param(
-    [string]$ScriptDir = (Join-Path (Split-Path $PSScriptRoot) "game"),
+    [string]$ScriptDir = "",  # default: bridge\game of this repo (set below: $PSScriptRoot is empty in param() under 5.1 -File)
     # a project's hooks for the game scripts (vic3_hooks.ps1 and the files it uses), copied next to them
     [string]$HooksDir = "",
     [string]$Script = "run_vic3_sandbox.ps1",
@@ -53,6 +53,7 @@ param(
     [int]$TimeoutMinutes = 180
 )
 $ErrorActionPreference = "Stop"
+if (-not $ScriptDir) { $ScriptDir = Join-Path (Split-Path $PSScriptRoot) "game" }
 $HostDocs = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Paradox Interactive\Victoria 3"
 if (-not $ContentLoad) { $ContentLoad = Join-Path $HostDocs "content_load.json" }
 $Guest = "C:\vic3tools"

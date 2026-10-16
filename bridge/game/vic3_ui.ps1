@@ -6,7 +6,11 @@ Usage (PowerShell):
     powershell -ExecutionPolicy Bypass -File bridge\game\vic3_ui.ps1 -OutDir <run dir> -Do "<step>;<step>;..."
 Steps (';'-separated, run in order):
     shot <name>             screenshot of the window into <OutDir>\<name>.png
-    click <fx> <fy>         left click at a fraction of the window (2560x1440 measured)
+    click <fx> <fy> [anchor] left click at a fraction of the window (2560x1440 measured); an anchor (tl, tr, bl, br, bc)
+                            moves it by the interface scale (Scale-Px)
+    ctrlclick <fx> <fy>     the same with Ctrl held
+    observe [TAG]           observer mode (nobody plays, the AI runs every country); with a tag -- observing it:
+                            its top bar, panels and tooltips as its player sees them (Observe-Country)
     hover <fx> <fy>         move the mouse there (a tooltip opens after ~1 s)
     scroll <fx> <fy> <n>    mouse wheel there, n notches (negative = down)
     wait <sec>              sleep
@@ -56,7 +60,9 @@ foreach ($step in ($Do -split ';' | ForEach-Object { $_.Trim() } | Where-Object 
     if (-not $p -and $cmd -ne "close") { Log "no game running - '$step' skipped"; break }
     switch ($cmd) {
         "shot"    { Focus-Game $p; Start-Sleep -Milliseconds 300; Shot $p ($rest + ".png") }
-        "click"   { $xy = $rest -split '\s+'; Click-Window $p ([double]$xy[0]) ([double]$xy[1]) }
+        "click"   { $xy = $rest -split '\s+'; Click-Window $p ([double]$xy[0]) ([double]$xy[1]) $(if ($xy.Count -gt 2) { $xy[2] }) }
+        "ctrlclick" { $xy = $rest -split '\s+'; Ctrl-Click-Window $p ([double]$xy[0]) ([double]$xy[1]) }
+        "observe" { Observe-Country $p $rest.Trim() }
         "hover"   { $xy = $rest -split '\s+'; Hover-Window $p ([double]$xy[0]) ([double]$xy[1]) }
         # hoverlink <n> <fy>: the n-th underlined link of the pinned tooltip, found by its look (5.10); not found --
         # the fixed row fy (the old way)

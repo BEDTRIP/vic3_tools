@@ -206,8 +206,29 @@ function Send-Key([byte]$vk, [byte]$scan) {
     Start-Sleep -Milliseconds 200
 }
 
-# Left click at a point of the window (fraction of its size).
-function Click-Window($p, $fx, $fy) {
+# The game's interface scale (GUI.scale of pdx_settings.json; 1 = 100 %). Points and boxes here are measured at ×1 on
+# 2560x1440; at another scale the interface grows from where each element is anchored -- a point with an anchor
+# ("tl", "tr", "bl", "br", "bc": top / bottom, left / right / centre) moves away from that corner by the scale. The
+# main menu, the goals screen and the console (a tool, tools_gui_scale) do not follow GUI.scale. Checked 16.10.2026 at
+# ×1.3: the lobby's Start button 0.9215 → 0.898 (bottom-right), Random country 0.25 → 0.324 (bottom-left).
+$script:UiScale = 1.0
+try {
+    $set = Get-Content (Join-Path $env:USERPROFILE "Documents\Paradox Interactive\Victoria 3\pdx_settings.json") -Raw -Encoding UTF8
+    if ($set -match '"GUI":\s*\{[^}]*?"scale":\s*"([0-9.]+)"') { $script:UiScale = [double]$Matches[1] }
+} catch { }
+
+# A 2560x1440 point (px) moved by the interface scale from its anchor; no anchor -- as is.
+function Scale-Px($x, $y, $anchor) {
+    $s = $script:UiScale
+    if (-not $anchor -or $s -eq 1.0) { return @($x, $y) }
+    $ax = if ($anchor -match 'r') { 2560 } elseif ($anchor -match 'l') { 0 } else { 1280 }
+    $ay = if ($anchor -match 'b') { 1440 } elseif ($anchor -match 't') { 0 } else { 720 }
+    return @(($ax + ($x - $ax) * $s), ($ay + ($y - $ay) * $s))
+}
+
+# Left click at a point of the window (fraction of its size; with an anchor -- moved by the interface scale).
+function Click-Window($p, $fx, $fy, $anchor = $null) {
+    if ($anchor) { $q = Scale-Px ($fx * 2560) ($fy * 1440) $anchor; $fx = $q[0] / 2560; $fy = $q[1] / 1440 }
     $r = New-Object W+RECT
     [W]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
     Assert-Front $p
@@ -215,6 +236,35 @@ function Click-Window($p, $fx, $fy) {
     Start-Sleep -Milliseconds 150
     [W]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
     [W]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero); Mark-Own; Start-Sleep -Milliseconds 300
+}
+
+# A left click with Ctrl held (observer mode: Ctrl + click on a country observes it). Nothing may run between Ctrl down
+# and up: a wait for the user there once pressed Escape with Ctrl held -- Ctrl + Esc opened the Windows Start menu over
+# the game (16.10.2026). So the window is checked first, then Ctrl, the click and Ctrl up in one go.
+function Ctrl-Click-Window($p, $fx, $fy) {
+    $r = New-Object W+RECT
+    [W]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
+    Assert-Front $p
+    [W]::SetCursorPos([int]($r.L + ($r.R - $r.L) * $fx), [int]($r.T + ($r.B - $r.T) * $fy)) | Out-Null
+    Start-Sleep -Milliseconds 150
+    [W]::keybd_event(0x11, 0x1D, 0, [UIntPtr]::Zero)
+    try {
+        Start-Sleep -Milliseconds 80
+        [W]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 60
+        [W]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 80
+    } finally { [W]::keybd_event(0x11, 0x1D, 2, [UIntPtr]::Zero); Mark-Own }
+    Start-Sleep -Milliseconds 300
+}
+
+# Observer mode (the console "observe"): the game runs for every country by the AI, nobody plays. Observing a country
+# (its top bar, panels, tooltips as for its player) is a Ctrl + click on its land; the observer picks no country by
+# tag, so: "tag <TAG>" (the camera jumps to its capital, in the middle of the window), "observe", Ctrl + click the
+# middle. Checked in the game 16.10.2026 (1.13.11): "observe" alone shows "no country selected"; after "tag" the
+# capital is at the middle of the window.
+function Observe-Country($p, $tag) {
+    if ($tag) { Console-Cmd $p "tag $tag"; Start-Sleep 3 }
+    Console-Cmd (Get-Game) "observe"; Start-Sleep 3
+    if ($tag) { Ctrl-Click-Window (Get-Game) 0.5 0.5; Start-Sleep 2; Log "observing $tag" } else { Log "observer mode" }
 }
 
 # Console (debug_mode): the key left of 1 (VK_OEM_3, scan 0x29), clear the line
@@ -280,7 +330,8 @@ $Screens = @{
     goals = @{ box = @(5, 5, 130, 90); rgb = @(33, 31, 32); tol = 15 }
     # the lobby: the dark right panel AND the grey "Start" button -- run 17 (1.10 night) took a
     # loading screen's light stadium for the lobby's sea and clicked into the void
-    lobby = @{ box = @(2200, 300, 2540, 900); rgb = @(47, 52, 49); tol = 15; box2 = @(2180, 1395, 2540, 1430); rgb2 = @(53, 53, 53); tol2 = 15 }
+    lobby = @{ box = @(2200, 300, 2540, 900); rgb = @(47, 52, 49); tol = 15; box2 = @(2180, 1395, 2540, 1430); rgb2 = @(53, 53, 53); tol2 = 15
+               anchor = "tr"; anchor2 = "br" }
     # the column's skin depends on the country's interface style: (76, 68, 68) for most, (92, 84, 65) for
     # Croatia -- Austria's style (4.10, the user; a new game waited the full 400 s) -- tolerance 25
     # Two halves of the column, each on its own: 5.10 (run r1005_044523) a loading screen's painting -- beige
@@ -289,7 +340,7 @@ $Screens = @{
     # and the date panel at the top right (82, 73, 70): r1005_103836 took a Japanese loading painting for the
     # game -- both halves of the column inside the tolerance; there the panel is (166, 179, 178), the lobby (58, 42, 46)
     game  = @{ box = @(5, 210, 45, 595); rgb = @(76, 68, 68); tol = 25; box2 = @(5, 595, 45, 980); rgb2 = @(76, 68, 68); tol2 = 25
-               box3 = @(2200, 10, 2540, 60); rgb3 = @(82, 73, 70); tol3 = 20 }
+               box3 = @(2200, 10, 2540, 60); rgb3 = @(82, 73, 70); tol3 = 20; anchor = "tl"; anchor2 = "tl"; anchor3 = "tr" }
     # the open console: its log area is a flat dark grey (45, 50, 52); the map there is (59, 75, 92), the
     # budget panel (63, 64, 58) -- 5.10, screenshots of r1005_042928 and r1005_044523
     # and even (spread 3; a state panel or a dark sea 18..61), with the dark input line below it (26, 29, 30): r1005_110005
@@ -302,15 +353,22 @@ $Screens = @{
     # «Конец игры» (the player's country gone): the bottom row of four dark teal buttons, measured at their text-free
     # left ends -- (23, 35, 32) and (22, 33, 29), flat (r1013_180405 stall_182947: the game (33, 36, 35) / (43, 45, 36),
     # uneven; the lobby (41, 55, 51))
-    gameover = @{ box = @(40, 1398, 110, 1426); rgb = @(23, 35, 32); tol = 8; flat = 6; box2 = @(1295, 1398, 1340, 1426); rgb2 = @(22, 33, 29); tol2 = 8; flat2 = 6 }
-    escmenu = @{ box = @(5, 210, 45, 595); rgb = @(27, 26, 21); tol = 10; box2 = @(40, 420, 360, 880); rgb2 = @(39, 34, 29); tol2 = 10 }
+    gameover = @{ box = @(40, 1398, 110, 1426); rgb = @(23, 35, 32); tol = 8; flat = 6; box2 = @(1295, 1398, 1340, 1426); rgb2 = @(22, 33, 29); tol2 = 8; flat2 = 6
+                  anchor = "bl"; anchor2 = "bc" }
+    escmenu = @{ box = @(5, 210, 45, 595); rgb = @(27, 26, 21); tol = 10; box2 = @(40, 420, 360, 880); rgb2 = @(39, 34, 29); tol2 = 10
+                 anchor = "tl"; anchor2 = "tl" }
 }
 function Is-Screen($p, $name) {
     $sc = $Screens[$name]
-    if (-not (Is-Box $p $sc.box $sc.rgb $sc.tol $sc.flat)) { return $false }
-    if ($sc.box2 -and -not (Is-Box $p $sc.box2 $sc.rgb2 $sc.tol2 $sc.flat2)) { return $false }
-    if ($sc.box3 -and -not (Is-Box $p $sc.box3 $sc.rgb3 $sc.tol3)) { return $false }
+    if (-not (Is-Box $p (Scale-Box $sc.box $sc.anchor) $sc.rgb $sc.tol $sc.flat)) { return $false }
+    if ($sc.box2 -and -not (Is-Box $p (Scale-Box $sc.box2 $sc.anchor2) $sc.rgb2 $sc.tol2 $sc.flat2)) { return $false }
+    if ($sc.box3 -and -not (Is-Box $p (Scale-Box $sc.box3 $sc.anchor3) $sc.rgb3 $sc.tol3)) { return $false }
     return $true
+}
+# A box (x0, y0, x1, y1 of 2560x1440) moved by the interface scale from its anchor.
+function Scale-Box($box, $anchor) {
+    $a = Scale-Px $box[0] $box[1] $anchor; $b = Scale-Px $box[2] $box[3] $anchor
+    return @($a[0], $a[1], $b[0], $b[1])
 }
 # $flat: if set, the box must also be even -- the spread (std) of its brightness at most $flat
 function Is-Box($p, $box, $rgb, $tol, $flat = $null) {
@@ -363,9 +421,10 @@ function Wait-Screen($names, $max, $settle) {
 function Date-Crop($p) {
     $r = New-Object W+RECT
     [W]::GetWindowRect($p.MainWindowHandle, [ref]$r) | Out-Null
-    $bmp = New-Object System.Drawing.Bitmap 160, 32
+    $s = $script:UiScale  # the date panel is anchored top-right
+    $bmp = New-Object System.Drawing.Bitmap ([int](160 * $s)), ([int](32 * $s))
     $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($r.R - 340, $r.T + 2, 0, 0, $bmp.Size)
+    $g.CopyFromScreen($r.R - [int](340 * $s), $r.T + [int](2 * $s), 0, 0, $bmp.Size)
     $ms = New-Object System.IO.MemoryStream
     $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()
     [Convert]::ToBase64String($ms.ToArray())
