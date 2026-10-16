@@ -60,4 +60,7 @@ a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shot
   `sed -E 's/^\[[0-9:]+\]//' error.log | sed -E 's/[0-9]+/N/g' | sort | uniq -c | sort -rn | head -40`.
 - **GUI:** `gui.log` — "Type / Template '…' already registered at …" (which definition was ignored).
 - **What was loaded:** `content_load.json` (the mods and paths of the last start), `v3 mods` (the playset).
+- **Tools:** `v3 log summary <run>` (families), `v3 log diff <base run> <run>` (what is new), `v3 log sites <run>
+  --mod <mod>` (errors by the mod's file and line), `v3 log speed <runs>` (seconds per game month); a run's text
+  saves — `v3 save info / owners / buildings / companies / vars / goods / grep` (indexed once, then by pieces).
 - Silence in the logs is not confirmation: many breakages log nothing (skill `vic3-modding`, `diagnostics.md`).

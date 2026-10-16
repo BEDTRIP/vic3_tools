@@ -43,6 +43,8 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
 | `v3 lint [MOD]` | check a mod (default: the last of the set): vic3-tiger with the mods before it loaded as dependencies, plus our rules; known reports left out (baseline, suppressions); by file and line. `--file F` — one file, `--no-tiger` — our rules only (about a second), `--key`, `--severity`, `--all`, `--baseline` — accept every current report as known |
 | `v3 bench start / do / shot / diff / stop` | the test bench: the game open in the sandbox VM; `shot NAME --crop x0,y0,x1,y1` sends the mod files changed since (the game in debug mode re-reads them) and takes a screenshot; `diff A B` — what changed; `do "<vic3_ui steps>"` — clicks, hovers, console |
+| `v3 save info / list / get / grep / vars / owners / buildings / companies / goods SAVE` | questions to a text save: indexed once (~10 s for 240 MB) into the cache, then read by pieces — a section or an entry, a country's variables and maps as numbers, who owns the production levels by owner class (with two saves: the gross additions and the transfers), buildings of a type, what companies own, a goods' flows |
+| `v3 log summary / diff / sites / speed` | the game's logs (or a run's folder with `dbgparts/` / `errparts/`): families of records, two runs compared, error records by the mod file and line (`--mod` maps a script effect's line to the file's), real seconds per game month |
 | `v3 def <name>…` | where a name is defined — records (with their line range), GUI types and templates, loc keys — and which definition wins |
 | `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
 | `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |
@@ -233,6 +235,28 @@ A cloud session has no game files; the PC bridge (`vic3_mods/tools/pc_bridge`, a
 tool `v3(args)` that runs a `v3` command on the PC and returns its output (`vic3tools/bridge.py`). Read-only commands
 and the bench only: `gui set` only with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud
 edits its own clone and pushes. Shots of the bench are read with the bridge's `get_image('bench/<step>/<name>.png')`.
+
+### Saves and logs
+
+`v3 save` reads text saves (the game with `-debug_mode`, or `save_storage = text`; ironman and compressed binary saves
+are refused). The first query scans the save's braces (~10 s for 240 MB) and keeps every block down to three levels
+with its byte span in `<cache>/saves/`; later queries read only the bytes they need. A save is a path or a name in
+the documents' `save games`.
+
+```
+v3 save owners autosave_4 autosave --class "bank=company_Bank*" --skip building_financial_centre
+v3 save buildings autosave building_textile_mills
+v3 save vars autosave GBR 'debt|money'
+v3 save goods autosave --ids building_gold_mine      # the save's numeric goods ids
+```
+
+Owner classes: `gov` (the country), `company` (an HQ or regional HQ), `manor` (aristocrats), `findist`
+(capitalists), `f_pop` / `f_comp` / `f_gov` (an owner from another country), `self`, `other`; `--class NAME=GLOB`
+puts company types into a class of their own. Not production (left out): owner buildings, army, ports, urban
+centres, government, subsistence buildings, and prefixes given with `--skip`.
+
+`v3 log` reads `debug` / `warning` / `game` / `error` logs as records (a stamped line with its continuation lines);
+a family is the message with numbers and quoted names folded. `--skip REGEX` leaves out a mod's own log lines.
 
 ### Glossary
 

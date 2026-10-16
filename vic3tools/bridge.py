@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 READ_COMMANDS = {"where", "doctor", "glossary", "def", "refs", "loc", "outline", "playsets", "mods", "winner",
-                 "conflicts", "matrix", "audit", "gui", "lint", "bench"}
+                 "conflicts", "matrix", "audit", "gui", "lint", "bench", "save", "log"}
 REFUSED_FLAGS = {"lint": {"--baseline", "--refresh-baseline"}}
 MAX_OUTPUT = 40_000
 
