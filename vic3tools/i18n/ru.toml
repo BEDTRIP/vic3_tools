@@ -123,6 +123,9 @@ log_speed = "{run}: точек {count}, {a} … {b}; {sec} с на игрово�
 log_speed_few = "{run}: точек {count} — мало"
 
 gui_render = "{out}: {w} × {h}"
+gui_grid = "{out}: {langs} × {scales}, экран {screen}"
+gui_grid_bad = "проблем: {n}"
+gui_grid_ok = "без проблем"
 
 playsets_content_load = "{path}: модов плейсета {name}: {count}"
 audit_need_mod = "audit {kind}: нужен мод"

@@ -19,6 +19,8 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     b = bsub.add_parser("start", parents=[common], help="open the game in the VM with the set's mods, paused")
     b.add_argument("--save", default="", help="a save of the host's 'save games' (default: a new game)")
     b.add_argument("--tag", default="SWI", help="the country (a new game; a save that opens in the lobby)")
+    b.add_argument("--scale", default="", help="the guest's interface scale (GUI.scale), e.g. 1.25")
+    b.add_argument("--language", default="", help="the guest's language (english, russian…); default: the host's")
     b.set_defaults(func=cmd_start)
 
     b = bsub.add_parser("do", help="vic3_ui.ps1 steps on the open game, after sending the changed mod files "
@@ -60,7 +62,7 @@ def _report(st: bench.Step, as_json: bool) -> int:
 
 def cmd_start(args, cfg) -> int:
     ms = mod_set(args, cfg)
-    st = bench.start(cfg, [m.path for m in ms.mods[1:]], args.save, args.tag)
+    st = bench.start(cfg, [m.path for m in ms.mods[1:]], args.save, args.tag, scale=args.scale, language=args.language)
     return _report(st, args.json)
 
 

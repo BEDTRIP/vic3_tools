@@ -123,6 +123,9 @@ log_speed = "{run}: {count} points, {a} … {b}; {sec} s per game month"
 log_speed_few = "{run}: {count} points — too few"
 
 gui_render = "{out}: {w} × {h}"
+gui_grid = "{out}: {langs} × {scales}, screen {screen}"
+gui_grid_bad = "{n} problem(s)"
+gui_grid_ok = "no problems"
 
 playsets_content_load = "{path}: {count} mod(s) of the playset {name}"
 audit_need_mod = "audit {kind}: give the mod"

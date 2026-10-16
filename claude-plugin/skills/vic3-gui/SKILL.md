@@ -10,7 +10,9 @@ The method of Impeccable, the content of Vic3: one **style file** describing how
 
 Tools: `v3 gui resolve FILE:LINE` (what a widget really gets after types / templates / blocks), `v3 gui types|templates
 |textures Q` (what to reuse), `v3 gui fit FILE:LINE` (text width in 11 languages), `v3 gui set` (edit a property),
-`v3 lint --file F` (tiger + rules), `v3 gui render FILE:LINE` (a PNG without the game, ~2 s — an approximation),
+`v3 lint --file F` (tiger + rules), `v3 gui render FILE:LINE` (a PNG without the game, ~2 s — an approximation;
+`--scale` / `--screen` as the player's settings), `v3 gui grid FILE:LINE` (one sheet for languages × interface scales,
+every wrap, cut, elision and overflow listed with `file:line`),
 `v3 bench` (see it in the game, ~30 s per look). Engine facts: `vic3-modding`,
 `references/gui.md`.
 
@@ -36,6 +38,8 @@ Run on each changed `.gui` file; report by place (`file:line`), fix only what is
 - [ ] `blockoverride` names exist in the type chain (`v3 gui types TYPE` — blocks offered); remember the type's own
       override beats the instance's.
 - [ ] `@constants` used in a file are defined **in that file**.
+- [ ] The window holds together in Russian and English at the usual scales: `v3 gui grid FILE:LINE --scales 1,1.3
+      --screen fhd` (and `qhd`); every listed problem is either fixed or meant (a wrap the box was made for).
 - [ ] Every text fits in all 11 languages: `v3 gui fit FILE:LINE` for each label with a fixed width; a label that may
       grow — `multiline` with a `maximumsize` and a height that allows two lines, or `elide` + a tooltip with the full
       text.

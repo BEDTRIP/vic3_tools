@@ -21,6 +21,14 @@ Paint: ``background`` and ``icon`` textures (``.dds`` / ``.png`` of the set), 9-
 ``alpha``, ``mirror``; text with the game's fonts per language (glyph fallbacks), the colour of ``default_format``
 from ``textformatting.gui``, ``align``, ``multiline`` wrap, ``elide``. Not drawn: ``modify_texture`` overlays, shaders,
 animations, text icons; ``[…]`` and ``$…$`` show as ``--stub``.
+
+Scale (the game's ``GUI.scale`` in ``pdx_settings.json``) multiplies the whole interface: the layout is in logical
+pixels with the screen ÷ scale as the parent of ``%`` sizes, a text is measured at the whole font pixels the scale gives
+(cut down: 15 at ×1.3 is 19 px, so widths do not scale exactly), and the picture is painted at the scale.
+
+Problems found while laying out (``issues``): a text that wraps, is cut by its box's height, elided, shrunk to
+``fontsize_min``, or runs out of a fixed-width box; a widget outside its fixed-size parent; a widget larger than the
+screen.
 """
 
 from __future__ import annotations
@@ -53,6 +61,7 @@ class Box:
     lines: list[str] = field(default_factory=list)  # a textbox's lines as drawn
     size: float = 0  # its font size
     clip: bool = False
+    issues: list[str] = field(default_factory=list)
 
 
 def _pair(v: str | None) -> list[str]:
@@ -68,8 +77,11 @@ def _anchor(v: str | None) -> tuple[float, float]:
 
 
 class Renderer:
-    def __init__(self, si, lang: str = "english", stub: str = fit.SAMPLE, items: int = 3, hide_bound: bool = False):
+    def __init__(self, si, lang: str = "english", stub: str = fit.SAMPLE, items: int = 3, hide_bound: bool = False,
+                 scale: float = 1.0, marks: bool = False):
         self.si = si
+        self.scale = scale
+        self.marks = marks  # outline the widgets with issues
         self.res = resolve.Resolver(si)
         self.lang = lang
         self.stub = stub
@@ -182,6 +194,11 @@ class Renderer:
 
     def font_size(self, p: dict[str, RNode]) -> float:
         return self.num(self.value(p.get("fontsize")), 0, fit.DEFAULT_SIZE) or fit.DEFAULT_SIZE
+
+    def measure(self, size: float) -> float:
+        """The size a text is measured at, in logical pixels: the game draws the font at the scaled size cut down to
+        whole pixels (15 at ×1.3 is 19 px, not 20 -- checked in the game)."""
+        return max(1, int(size * self.scale + 1e-6)) / self.scale
 
     # --- layout ------------------------------------------------------------------------------------------------------
 
@@ -301,17 +318,31 @@ class Renderer:
         if not faces:
             self.notes.add(f"no font files for {self.value(p.get('font')) or fit.DEFAULT_FONT} in {self.lang}")
         lines = text.split("\n") if text else [""]
+        own = len(lines)
+        natural = max((fonts.width(ln, faces, self.measure(size)) for ln in lines), default=0) if faces else 0
+        elide = self.value(p.get("elide")) in ("right", "left", "middle")
         if multiline and avail and faces:
-            lines = fonts.wrap(text, faces, size, avail)
-        elif avail and faces and self.value(p.get("elide")) in ("right", "left", "middle"):
+            lines = fonts.wrap(text, faces, self.measure(size), avail)
+        elif avail and faces and elide:
             fmin = self.num(self.value(p.get("fontsize_min")), 0, 0)
-            wd = max(fonts.width(ln, faces, size) for ln in lines)
-            if wd > avail and fmin:
-                size = max(fmin, int(size * avail / wd))
-            lines = [self.elide(ln, faces, size, avail) for ln in lines]
-        tw = max((fonts.width(ln, faces, size) for ln in lines), default=0) if faces else len(text) * size / 2
-        th = len(lines) * size * 1.25
+            if natural > avail and fmin:
+                was = size
+                size = max(fmin, int(size * avail / natural))
+                b.issues.append(f"font shrunk {was:g} → {size:g}")
+            lines = [self.elide(ln, faces, self.measure(size), avail) for ln in lines]
+        m = self.measure(size)
+        tw = max((fonts.width(ln, faces, m) for ln in lines), default=0) if faces else len(text) * size / 2
+        th = len(lines) * m * 1.25
         b.lines, b.size = lines, size
+        if text and faces:
+            if len(lines) > own:
+                b.issues.append(f"wraps to {len(lines)} lines")
+            if any(ln.endswith("…") for ln in lines) and "…" not in text:
+                b.issues.append(f"elided: needs {natural:.0f} px, has {avail:.0f}")
+            elif not multiline and not elide and avail is not None and natural > avail + 0.5:
+                b.issues.append(f"runs out of its box: needs {natural:.0f} px, has {avail:.0f}")
+            if h is not None and not auto and th + my[0] + my[1] > h + 0.5:
+                b.issues.append(f"cut by height: needs {th + my[0] + my[1]:.0f} px, has {h:.0f}")
         if w is None or auto:
             w = tw + mx[0] + mx[1]
             if lo[0] and lo[0] > 0:
@@ -319,6 +350,26 @@ class Renderer:
         if h is None or auto:
             h = th + my[0] + my[1]
         b.w, b.h = w, h
+
+    def check(self, b: Box) -> None:
+        """Children outside a parent of a fixed size (a flowcontainer grows with them, a scrollarea clips them)."""
+        for c in b.children:
+            if b.kind not in FLOW and not b.clip:
+                out = max(-c.x, -c.y, c.x + c.w - b.w, c.y + c.h - b.h)
+                if out > 0.5:
+                    c.issues.append(f"outside its parent by {out:.0f} px")
+            self.check(c)
+
+    def issues(self, b: Box, path: str = "") -> list[tuple[str, str, str]]:
+        """(where, widget, problem) for every problem in the tree."""
+        nd = b.node.node
+        who = f"{b.kind} '{nd.label()}'" if nd.label() else b.kind
+        where = f"{nd.file.name if nd.file else '?'}:{nd.line}"
+        here = f"{path}/{who}" if path else who
+        out = [(where, here, i) for i in b.issues]
+        for c in b.children:
+            out += self.issues(c, here)
+        return out
 
     def elide(self, line: str, faces, size: float, avail: float) -> str:
         if fonts.width(line, faces, size) <= avail:
@@ -407,6 +458,7 @@ class Renderer:
         from PIL import ImageDraw
 
         x, y = ox + b.x, oy + b.y
+        s = self.scale
         p = self.props(b.node)
         for c in b.node.children or []:
             if c.is_widget and c.key == "background" and self.visible(c):
@@ -419,9 +471,11 @@ class Renderer:
             clip = (x, y, x + b.w, y + b.h)
         for c in b.children:
             self.paint(c, img, x, y, boxes, clip)
-        if boxes:
+        if boxes or (self.marks and b.issues):
             d = ImageDraw.Draw(img)
-            d.rectangle((x, y, x + b.w - 1, y + b.h - 1), outline=(255, 0, 255, 160))
+            bad = self.marks and b.issues
+            d.rectangle((x * s, y * s, (x + b.w) * s - 1, (y + b.h) * s - 1),
+                        outline=(255, 40, 40, 255) if bad else (255, 0, 255, 160), width=2 if bad else 1)
 
     def draw_texture(self, img, p, x, y, w, h, background: bool = False) -> None:
         from PIL import Image
@@ -448,10 +502,14 @@ class Renderer:
             x, y, w, h = x - (mx or 0), y - (my or 0), w + 2 * (mx or 0), h + 2 * (my or 0)
         sprite = self.value(p.get("spriteType")).lower()
         bx, by = self.pair(p.get("spriteborder"))
+        s = self.scale
+        size = (max(1, round(w * s)), max(1, round(h * s)))
         if sprite.startswith("cornered") and (bx or by):
             tile = _nine(src, int(bx or 0), int(by or 0), int(w), int(h))
+            if tile.size != size:
+                tile = tile.resize(size, Image.BILINEAR)
         else:
-            tile = src.resize((max(1, int(w)), max(1, int(h))), Image.BILINEAR)
+            tile = src.resize(size, Image.BILINEAR)
         mirror = self.value(p.get("mirror"))
         if "horizontal" in mirror:
             tile = tile.transpose(Image.FLIP_LEFT_RIGHT)
@@ -469,7 +527,7 @@ class Renderer:
                     alpha *= tint[3]
             a_ = a_.point(lambda v, k=alpha: int(v * k))
             tile = Image.merge("RGBA", (r_, g_, b_, a_))
-        img.alpha_composite(tile, (int(round(x)), int(round(y))))
+        img.alpha_composite(tile, (int(round(x * s)), int(round(y * s))))
 
     def pair_color(self, r: RNode | None) -> list[float] | None:
         if r is None:
@@ -491,37 +549,47 @@ class Renderer:
         tint = self.pair_color(p.get("fonttintcolor"))
         if tint:
             color = tuple(int(c * 255) for c in tint[:3]) + (255,)
+        s = self.scale
         (ml, mr), (mt, _mb) = self.margins(p)
+        x, y, w, h, ml, mr, mt = x * s, y * s, b.w * s, b.h * s, ml * s, mr * s, mt * s  # screen pixels from here
+        px = max(1, int(b.size * s + 1e-6))
         align = self.value(p.get("align"))
         d = ImageDraw.Draw(img)
-        lh = b.size * 1.25
-        top = y + mt
-        if "vcenter" in align or "center" == align:
-            top = y + (b.h - len(b.lines) * lh) / 2
+        lh = px * 1.25
+        top = y + (h - len(b.lines) * lh) / 2  # no vertical align: centred (the engine's default, seen in the game)
+        if "top" in align:
+            top = y + mt
+        elif "bottom" in align:
+            top = y + h - _mb * s - len(b.lines) * lh
         for i, line in enumerate(b.lines):
-            lw = fonts.width(line, faces, b.size)
+            lw = fonts.width(line, faces, px)
             if "hcenter" in align or align == "center":
-                cx = x + ml + (b.w - ml - mr - lw) / 2
+                cx = x + ml + (w - ml - mr - lw) / 2
             elif "right" in align:
-                cx = x + b.w - mr - lw
+                cx = x + w - mr - lw
             else:
                 cx = x + ml
             cy = top + i * lh
             for ch in line:
                 face = next((f for f in faces if f.has(ch)), faces[0])
-                font = _font(str(face.path), int(round(b.size)))
+                font = _font(str(face.path), px)
                 d.text((cx, cy), ch, font=font, fill=color)
-                cx += face.advances.get(ord(ch), face.upem // 2) * b.size / face.upem
+                cx += face.advances.get(ord(ch), face.upem // 2) * px / face.upem
 
     # --- top ---------------------------------------------------------------------------------------------------------
 
-    def render(self, nd, canvas: tuple[int, int] = (1920, 1080), boxes: bool = False, pad: int = 8):
+    def render(self, nd, canvas: tuple[float, float] = (1920, 1080), boxes: bool = False, pad: int = 8):
+        """The widget as a picture at the scale; ``canvas`` is the parent in logical pixels (the screen ÷ scale)."""
         from PIL import Image
 
         r = self.res.expand(nd)
         b = self.layout(r, canvas[0], canvas[1])
+        self.check(b)
+        if b.w > canvas[0] + 0.5 or b.h > canvas[1] + 0.5:
+            b.issues.append(f"larger than the screen: {b.w:.0f}×{b.h:.0f} on {canvas[0]:.0f}×{canvas[1]:.0f}")
         b.x, b.y = pad, pad  # the widget alone: its own anchors and position are not applied
-        img = Image.new("RGBA", (int(b.w) + 2 * pad, int(b.h) + 2 * pad), (0, 0, 0, 0))
+        s = self.scale
+        img = Image.new("RGBA", (round((b.w + 2 * pad) * s), round((b.h + 2 * pad) * s)), (0, 0, 0, 0))
         self.paint(b, img, 0, 0, boxes)
         return img, b
 

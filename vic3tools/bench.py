@@ -54,7 +54,7 @@ def scripts_dir(cfg: paths.Config) -> Path:
 
 
 def _run(cfg: paths.Config, script: str, params: dict, content_load: Path | None = None, with_game: bool = False,
-         start_save: str = "", name: str = "", timeout: int = 1800) -> Step:
+         start_save: str = "", name: str = "", timeout: int = 1800, scale: str = "", language: str = "") -> Step:
     sid = datetime.datetime.now().strftime("b%m%d_%H%M%S") + (f"_{name}" if name else "")
     out = bench_dir() / sid
     out.mkdir(parents=True, exist_ok=True)
@@ -75,6 +75,10 @@ def _run(cfg: paths.Config, script: str, params: dict, content_load: Path | None
         cmd.append("-WithGame")
     if start_save:
         cmd += ["-StartSave", start_save]
+    if scale:
+        cmd += ["-GuiScale", scale]
+    if language:
+        cmd += ["-Language", language if language.startswith("l_") else f"l_{language}"]
     p = subprocess.run(cmd, capture_output=True, timeout=timeout)
     text = (p.stdout + p.stderr).decode("utf-8", "replace")
     (out / "bench.log").write_text(text, encoding="utf-8")
@@ -90,13 +94,14 @@ def content_load_for(mods: list[Path]) -> Path:
 
 
 def start(cfg: paths.Config, mods: list[Path] | None = None, save: str = "", tag: str = "SWI",
-          load_wait: int = 400) -> Step:
-    """Open the game in the VM and leave it paused: a new game as ``tag``, or the host's save ``save``."""
+          load_wait: int = 400, scale: str = "", language: str = "") -> Step:
+    """Open the game in the VM and leave it paused: a new game as ``tag``, or the host's save ``save``; ``scale`` and
+    ``language`` set the guest's interface scale and language instead of the host's."""
     params = {"RunMinutes": 0, "AiTag": "", "KeepOpen": True, "Tag": tag, "LoadWaitSec": load_wait}
     if not save:
         params["NewGame"] = True
     cl = content_load_for(mods) if mods else None
-    return _run(cfg, "run_vic3_sandbox.ps1", params, cl, start_save=save, name="start")
+    return _run(cfg, "run_vic3_sandbox.ps1", params, cl, start_save=save, name="start", scale=scale, language=language)
 
 
 def step(cfg: paths.Config, do: str, name: str = "") -> Step:

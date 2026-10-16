@@ -52,10 +52,30 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     g.add_argument("--items", type=int, default=3, help="items drawn for a list with a datamodel")
     g.add_argument("--stub", default="000", help="what [ … ] and $ … $ show as (default 000)")
     g.add_argument("--hide-bound", action="store_true", help="leave out widgets with a bound visible = \"[…]\"")
-    g.add_argument("--canvas", default="1920x1080", help="the parent's size for %% sizes (WxH)")
+    g.add_argument("--scale", type=float, default=1.0, help="the game's interface scale (GUI.scale of "
+                   "pdx_settings.json; 1 = 100%%)")
+    g.add_argument("--screen", default="fhd", help="the screen: fhd (1920x1080), qhd (2560x1440), uhd (3840x2160) "
+                   "or WxH; %% sizes are of the screen ÷ scale")
+    g.add_argument("--canvas", help="the parent's size for %% sizes in logical pixels (WxH), instead of --screen")
+    g.add_argument("--marks", action="store_true", help="outline the widgets with problems in red")
     g.add_argument("--compare", type=Path, help="a game screenshot to put next to the render")
     g.add_argument("--crop", help="the area of --compare: x0,y0,x1,y1 in fractions or pixels")
     g.set_defaults(func=cmd_render)
+
+    g = gsub.add_parser("grid", parents=[common], help="the widget at FILE:LINE drawn for every language × scale "
+                        "in one picture, with every text that wraps, is cut or elided and every widget out of its "
+                        "parent or the screen marked and listed")
+    g.add_argument("target", nargs="?", help="FILE:LINE")
+    g.add_argument("--type", dest="type_name", help="draw a type by name instead")
+    g.add_argument("--langs", default="russian,english", help="languages, comma-separated (default russian,english)")
+    g.add_argument("--scales", default="1", help="interface scales, comma-separated (e.g. 0.75,1,1.25)")
+    g.add_argument("--screen", default="qhd", help="fhd, qhd (default), uhd or WxH")
+    g.add_argument("--out", type=Path, help="the PNG (default: <cache>/render/<name>_grid.png)")
+    g.add_argument("--items", type=int, default=3, help="items drawn for a list with a datamodel")
+    g.add_argument("--stub", default="000", help="what [ … ] and $ … $ show as (default 000)")
+    g.add_argument("--hide-bound", action="store_true", help="leave out widgets with a bound visible = \"[…]\"")
+    g.add_argument("--limit", type=int, default=12, help="problems listed per cell")
+    g.set_defaults(func=cmd_grid)
 
     g = gsub.add_parser("names", help="widget names, types and text icons of two mods (or one file in both): shared "
                         "and only in one — a merged .gui must keep every name of the versions it merges")
@@ -336,28 +356,45 @@ def cmd_textures(args, cfg) -> int:
 # --- render --------------------------------------------------------------------------------------------------------
 
 
+SCREENS = {"fhd": (1920, 1080), "qhd": (2560, 1440), "uhd": (3840, 2160)}
+
+
+def _screen(spec: str) -> tuple[int, int]:
+    if spec.lower() in SCREENS:
+        return SCREENS[spec.lower()]
+    w, _, h = spec.lower().partition("x")
+    return int(w), int(h or 1080)
+
+
+def _subject(args, rd, si) -> tuple[tree.GNode | None, str]:
+    """The widget to draw (FILE:LINE or --type) and a name for its picture."""
+    if args.type_name:
+        return rd.res.find("type", args.type_name), args.type_name
+    if args.target:
+        path, line = _target(args.target, si)
+        return _widget(path, line), f"{path.stem}_{line}"
+    return None, ""
+
+
 def cmd_render(args, cfg) -> int:
     from vic3tools.core import paths as cpaths
     from vic3tools.gui import render
 
     si = _open(args, cfg)
     try:
-        rd = render.Renderer(si, args.text_lang, args.stub, args.items, args.hide_bound)
-        if args.type_name:
-            nd = rd.res.find("type", args.type_name)
-            if nd is None:
-                print(t("def_none", name=args.type_name))
-                return 1
-            name = args.type_name
-        elif args.target:
-            path, line = _target(args.target, si)
-            nd = _widget(path, line)
-            name = f"{path.stem}_{line}"
+        rd = render.Renderer(si, args.text_lang, args.stub, args.items, args.hide_bound, args.scale, args.marks)
+        nd, name = _subject(args, rd, si)
+        if nd is None:
+            print(t("def_none", name=args.type_name) if args.type_name else t("gui_need_target"))
+            return 1 if args.type_name else 2
+        if args.canvas:
+            cw, _, ch = args.canvas.partition("x")
+            canvas = (float(cw), float(ch or 1080))
         else:
-            print(t("gui_need_target"))
-            return 2
-        cw, _, ch = args.canvas.partition("x")
-        img, box = rd.render(nd, (int(cw), int(ch or 1080)), args.boxes)
+            sw, sh = _screen(args.screen)
+            canvas = (sw / args.scale, sh / args.scale)
+        img, box = rd.render(nd, canvas, args.boxes)
+        problems = rd.issues(box)
     finally:
         si.close()
     if args.compare:
@@ -375,12 +412,88 @@ def cmd_render(args, cfg) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     img.save(out)
     if args.json:
-        _emit({"png": str(out), "size": [box.w, box.h], "notes": sorted(rd.notes)})
+        _emit({"png": str(out), "size": [box.w, box.h], "scale": args.scale, "notes": sorted(rd.notes),
+               "issues": [{"at": a, "widget": w, "problem": i} for a, w, i in problems]})
         return 0
-    print(t("gui_render", out=out, w=round(box.w), h=round(box.h)))
+    print(t("gui_render", out=out, w=round(box.w), h=round(box.h))
+          + (f"  (×{args.scale:g}: {img.width} × {img.height} px)" if args.scale != 1 else ""))
+    for a, w, i in problems[:15]:
+        print(f"  ! {a}  {w}: {i}")
     for n in sorted(rd.notes)[:10]:
         print("  " + n)
     return 0
+
+
+def cmd_grid(args, cfg) -> int:
+    from PIL import Image, ImageDraw, ImageFont
+
+    from vic3tools.core import paths as cpaths
+    from vic3tools.gui import render
+
+    langs = [x.strip() for x in args.langs.split(",") if x.strip()]
+    scales = [float(x) for x in args.scales.split(",") if x.strip()]
+    sw, sh = _screen(args.screen)
+    si = _open(args, cfg)
+    cells: dict[tuple[float, str], tuple] = {}
+    try:
+        rd = render.Renderer(si, langs[0], args.stub, args.items, args.hide_bound, marks=True)
+        nd, name = _subject(args, rd, si)
+        if nd is None:
+            print(t("def_none", name=args.type_name) if args.type_name else t("gui_need_target"))
+            return 1 if args.type_name else 2
+        for s in scales:
+            for lang in langs:
+                rd.lang, rd.scale = lang, s
+                img, box = rd.render(nd, (sw / s, sh / s))
+                cells[(s, lang)] = (img, rd.issues(box))
+        notes = sorted(rd.notes)
+    finally:
+        si.close()
+
+    label_h, gap = 26, 12
+    col_w = {lang: max(cells[(s, lang)][0].width for s in scales) for lang in langs}
+    row_h = {s: max(cells[(s, lang)][0].height for lang in langs) + label_h for s in scales}
+    size = (sum(col_w.values()) + gap * (len(langs) + 1), sum(row_h.values()) + gap * (len(scales) + 1))
+    sheet = Image.new("RGBA", size, (36, 36, 40, 255))
+    d = ImageDraw.Draw(sheet)
+    try:
+        font = ImageFont.load_default(size=16)
+    except TypeError:  # Pillow < 10.1
+        font = ImageFont.load_default()
+    y = gap
+    for s in scales:
+        x = gap
+        for lang in langs:
+            img, probs = cells[(s, lang)]
+            d.text((x, y + 4), f"{lang}  x{s:g}  " + (f"problems: {len(probs)}" if probs else "ok"),
+                   font=font,
+                   fill=(255, 110, 110, 255) if probs else (170, 220, 170, 255))
+            sheet.alpha_composite(img, (x, y + label_h))
+            x += col_w[lang] + gap
+        y += row_h[s] + gap
+    out = args.out or (cpaths.cache_dir() / "render" / f"{name}_grid.png")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out)
+
+    if args.json:
+        _emit({"png": str(out), "screen": [sw, sh], "notes": notes, "cells": [
+            {"lang": lang, "scale": s, "size": list(cells[(s, lang)][0].size),
+             "issues": [{"at": a, "widget": w, "problem": i} for a, w, i in cells[(s, lang)][1]]}
+            for s in scales for lang in langs]})
+        return 0
+    print(t("gui_grid", out=out, langs=", ".join(langs), scales=", ".join(f"{s:g}" for s in scales),
+            screen=f"{sw}×{sh}"))
+    for s in scales:
+        for lang in langs:
+            probs = cells[(s, lang)][1]
+            print(f"{lang} ×{s:g}: " + (t("gui_grid_bad", n=len(probs)) if probs else t("gui_grid_ok")))
+            for a, w, i in probs[:args.limit]:
+                print(f"  ! {a}  {w}: {i}")
+            if len(probs) > args.limit:
+                print(f"  … +{len(probs) - args.limit} (--limit)")
+    for n in notes[:10]:
+        print("  " + n)
+    return 1 if any(c[1] for c in cells.values()) else 0
 
 
 # --- names ---------------------------------------------------------------------------------------------------------

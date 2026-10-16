@@ -54,7 +54,8 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 gui textures Q` | `.dds` / `.png` files under `gfx/` whose path contains Q, with width × height and the mod whose copy loads |
 | `v3 gui set FILE:LINE KEY=VALUE…` | set properties of the widget around a line: replace at its own level or insert before its `}`; `--find TEXT` picks the widget by key or name, `--dry` shows the change only |
 | `v3 gui fit FILE:LINE` | does the text of a textbox fit its width in all 11 languages: fits, wraps into N lines, shrinks to fontsize N, is cut; `--width N` — what if it were N wide |
-| `v3 gui render FILE:LINE` | draw the widget to PNG without the game — resolved as by `resolve`, laid out (sizes, anchors, flowcontainer, hbox / vbox, lists), painted with the game's textures (9-slice, frames, tint) and fonts (`--lang`); `--boxes` outlines the boxes, `--compare SHOT --crop …` puts a game shot next to it. An approximation: check with `v3 bench` |
+| `v3 gui render FILE:LINE` | draw the widget to PNG without the game — resolved as by `resolve`, laid out (sizes, anchors, flowcontainer, hbox / vbox, lists), painted with the game's textures (9-slice, frames, tint) and fonts (`--lang`); `--boxes` outlines the boxes, `--compare SHOT --crop …` puts a game shot next to it; `--scale`, `--screen`, `--marks`; the problems found are listed. An approximation: check with `v3 bench` |
+| `v3 gui grid FILE:LINE` | the widget for every language × interface scale on one sheet (`--langs russian,english --scales 1,1.3 --screen qhd`), every wrap, cut, elision and overflow marked and listed |
 | `v3 gui style` | the look of vanilla's interface counted from its `.gui`: the types and templates used most, text formats with their colours, font sizes, container spacing and margins, textures — each with an example `file:line` (`--out FILE`; the base of a project's GUI style file, skill `vic3-gui`) |
 | `v3 playsets` | the launcher's playsets, the active one marked |
 | `v3 mods` | the mods of a set, in load order |
@@ -216,12 +217,31 @@ reports in the same turn.
 ```
 v3 gui render gui/my_panel.gui:120 --lang russian --boxes
 v3 gui render --type my_panel --compare shot.png --crop 0,0.15,0.4,0.8   # side by side with a game shot
+v3 gui render gui/my_panel.gui:120 --scale 1.3 --screen fhd --marks   # as at 130 % on 1920×1080, problems in red
+v3 gui grid gui/my_panel.gui:120 --langs russian,english --scales 1,1.3 --screen qhd
 ```
+
+`--scale` is the game's interface scale (`GUI.scale` in `pdx_settings.json`, 1 = 100 %): the layout stays in logical
+pixels with the screen ÷ scale as the parent of `%` sizes, texts are measured at the whole font pixels the scale gives,
+and the picture is painted at the scale. `--screen` is `fhd` (1920×1080, the default), `qhd` (2560×1440), `uhd` or
+`WxH`; `--canvas` sets the parent in logical pixels directly.
+
+Both commands list the problems they find, with `file:line` and the widget's path: a text that wraps, is cut by its
+box's height, elided, shrunk to `fontsize_min`, or runs out of a fixed-width box; a widget outside its fixed-size parent
+(a flowcontainer grows, a scrollarea clips — those are not counted); a widget larger than the screen. `grid` draws the
+widget for every language × scale on one sheet (problem boxes outlined in red), prints the problems of each cell and
+exits with 1 if there are any.
 
 Checked against the stage-3 probe window in the game: positions within a few pixels, font sizes, shrinking, wraps
 and widths as in the game. Known gaps: `modify_texture` overlays, shaders and animations are not drawn (backgrounds
 look flatter), text icons and inline formatting are dropped, `[…]` shows as `--stub`, a widget's own anchors are not
 applied at the root.
+
+Checked at ×1.3 against the same probe window in the game (2026-10-16): sizes and positions scale exactly (a 120 px
+bar is 156 px); the engine cuts a scaled font size down to whole pixels (15 → 19, 16 → 20, 22 → 28), and with that
+the text widths match within 1–3 px and every wrap matches, Russian and English; a text with no vertical `align` is
+centred in its box. The game snaps `GUI.scale` to tenths (1.25 written to the settings became 1.3). Rows still drift
+by a few pixels down a long column (line height is taken as 1.25 × the font size).
 
 ### Test bench: `v3 bench`
 
@@ -229,6 +249,7 @@ The loop "edit a `.gui` → see it" without a run, in the sandbox VM (`bridge/vm
 
 ```
 v3 bench start                          # the playset's mods, a new game as SWI (or --save NAME), left paused
+v3 bench start --scale 1.3 --language english   # the guest's interface scale and language instead of the host's
 v3 bench shot before --crop 0,0.1,0.5,0.6
 # … edit the .gui …
 v3 bench shot after --crop 0,0.1,0.5,0.6   # the changed files go to the VM first; the game re-reads them

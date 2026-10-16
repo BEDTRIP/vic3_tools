@@ -45,6 +45,9 @@ param(
     [switch]$FetchSaves,
     # a step on a game left open (run_vic3_sandbox.ps1 -KeepOpen): -Script vic3_ui.ps1; changed mod files still travel
     [switch]$WithGame,
+    # the guest's interface scale (GUI.scale) and language (l_english, l_russian…) instead of the host's
+    [string]$GuiScale = "",
+    [string]$Language = "",
     [string]$Name = "vic3-sandbox",
     [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA "vic3tools\vm-cred.xml"),
     [int]$TimeoutMinutes = 180
@@ -181,6 +184,9 @@ try {
     # the host's game settings (interface scale, language, autosaves: the run scripts click at places measured on
     # the host and read half-yearly autosaves; the renderer -- Vulkan works through GPU-P too) and key bindings
     $settings = Get-Content (Join-Path $HostDocs "pdx_settings.json") -Raw -Encoding UTF8
+    if ($GuiScale) { $settings = $settings -replace '("GUI":\s*\{[^}]*?"scale":\s*")[^"]*"', "`${1}$GuiScale`"" }
+    if ($Language) { $settings = $settings -replace '("language":\s*")[^"]*"', "`${1}$Language`"" }
+    if ($GuiScale -or $Language) { Say "settings: scale $(if ($GuiScale) { $GuiScale } else { 'as host' }), language $(if ($Language) { $Language } else { 'as host' })" }
     Invoke-Command -Session $session -ScriptBlock { param($p, $j) [IO.File]::WriteAllText($p, $j, (New-Object Text.UTF8Encoding $false)) } `
         -ArgumentList (Join-Path $GuestDocs "pdx_settings.json"), $settings
     if (Test-Path (Join-Path $HostDocs "user_bindings")) {

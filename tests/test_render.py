@@ -63,6 +63,76 @@ def test_paint(rd):
     assert img.getpixel((195, 95))[:3] == (255, 0, 0)
 
 
+PROBLEMS = """types P {
+\ttype issue_panel = widget {
+\t\tsize = { 100 40 }
+\t\ttextbox = { size = { 50 20 } multiline = yes fontsize = 10 raw_text = "aaaa aaaa aaaa" }
+\t\ttextbox = { size = { 30 20 } position = { 0 20 } fontsize = 10 raw_text = "aaaaaaaa" }
+\t\ticon = { size = { 20 20 } position = { 90 0 } }
+\t}
+}
+"""
+
+
+@pytest.fixture
+def rd2(tmp_path, home, monkeypatch):
+    van, m1 = tmp_path / "van" / "game", tmp_path / "m1"
+    write(van.parent / "launcher" / "launcher-settings.json", '{"rawVersion": "1.13.11"}')
+    write(van / "gui/p.gui", PROBLEMS)
+    write(m1 / "gui/x.gui", "")
+    (home / "vic3tools.toml").write_text(f"[roots]\ngame = '{van.parent.as_posix()}'\n", encoding="utf-8")
+    si = query.SetIndex.open(vfs.ModSet.from_dirs([m1]))
+    r = render.Renderer(si)
+    face = render.fonts.Face(None, 1000, {ord("a"): 500, ord(" "): 500})  # every glyph half the font size wide
+    monkeypatch.setattr(r, "faces", lambda p: [face])
+    yield r
+    si.close()
+
+
+def _problems(rd, scale=1.0):
+    rd.scale = scale
+    b = rd.layout(rd.res.expand(rd.res.find("type", "issue_panel")), 1920, 1080)
+    rd.check(b)
+    return b, [(w.split("/")[-1], i) for _a, w, i in rd.issues(b)]
+
+
+def test_issues(rd2):
+    _b, probs = _problems(rd2)
+    assert ("textbox 'raw_text: aaaa aaaa aaaa'", "wraps to 2 lines") in probs
+    assert ("textbox 'raw_text: aaaa aaaa aaaa'", "cut by height: needs 25 px, has 20") in probs
+    assert ("textbox 'raw_text: aaaaaaaa'", "runs out of its box: needs 40 px, has 30") in probs
+    assert ("icon", "outside its parent by 10 px") in probs
+
+
+def test_scale_measures_whole_pixels(rd2):
+    assert rd2.measure(10) == 10
+    rd2.scale = 1.25
+    assert rd2.measure(10) == 12 / 1.25  # 12.5 px is cut down to 12, as the game does (15 at ×1.3 → 19)
+    rd2.scale = 1.15
+    assert rd2.measure(20) == 23 / 1.15  # 20 × 1.15 is 22.999… in floats
+    _b, probs = _problems(rd2, 1.25)
+    assert ("textbox 'raw_text: aaaaaaaa'", "runs out of its box: needs 38 px, has 30") in probs
+
+
+def test_paint_scaled(rd):
+    rd.scale = 2
+    img, b = rd.render(rd.res.find("type", "my_panel"), pad=0)
+    assert img.size == (400, 200) and (b.w, b.h) == (200, 100)  # the layout stays logical
+    assert img.getpixel((390, 190))[:3] == (255, 0, 0) and img.getpixel((10, 4))[3] == 0
+
+
+def test_cli_grid(rd, tmp_path, capsys):
+    from vic3tools import cli
+
+    out = tmp_path / "grid.png"
+    code = cli.main(["--lang", "en", "gui", "grid", "--type", "my_panel", "--mods", str(tmp_path / "m1"),
+                     "--langs", "english,russian", "--scales", "1,2", "--out", str(out)])
+    text = capsys.readouterr().out
+    assert code == 0 and "english ×1: no problems" in text and "russian ×2: no problems" in text
+    img = PIL.open(out)
+    assert img.width > 2 * 216 and img.height > 116 + 216  # two columns; a row at ×1 and a row at ×2
+
+
 def test_nine_slice():
     src = PIL.new("RGBA", (10, 10), (0, 0, 255, 255))
     for x in range(10):
