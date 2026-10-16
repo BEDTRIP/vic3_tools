@@ -1,4 +1,4 @@
-<!-- source: docs/plan.md @ 3e4ccf5e6ff7 -->
+<!-- source: docs/plan.md @ 719f2be7b98b -->
 # План инструментов для модов Victoria 3
 
 План этого репо. Перенесён сюда из `vic3_mods` 15.10.2026.
