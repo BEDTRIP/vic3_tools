@@ -11,7 +11,10 @@
 # a week, or until the setup script changes). Every step is optional: a failure is reported and the session starts.
 # Without the game in the cloud the plugin's hooks print nothing and block nothing; the skills work as text.
 
-say() { echo "vic3tools cloud-setup: $*"; }
+# every line also goes to a log the session can read afterwards (the setup script's own output is not shown there)
+LOG="${HOME:-/root}/vic3tools-cloud-setup.log"
+say() { echo "vic3tools cloud-setup: $*"; echo "$(date -u +%FT%TZ) $*" >> "$LOG" 2>/dev/null || true; }
+say "start: user $(id -un 2>/dev/null), PWD $PWD, PC_BRIDGE_URL $([ -n "${PC_BRIDGE_URL:-}" ] && echo set || echo unset), PC_BRIDGE_TOKEN $([ -n "${PC_BRIDGE_TOKEN:-}" ] && echo set || echo unset), repos: $(ls -d /home/user/*/ 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
 
 # a checkout of vic3_tools attached to the session as a second repository, else GitHub
 SRC=""

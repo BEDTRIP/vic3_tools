@@ -92,8 +92,9 @@ Optional:
   3. `powershell -ExecutionPolicy Bypass -File bridge\pc\start.ps1 -Config <project>\bridge.toml` (`-Vm` — runs in the
      sandbox VM). The first start makes the venv and the token `<home>\token.txt`.
   4. In the project's `.mcp.json`: the server `https://<domain>/mcp` with the header
-     `"Authorization": "Bearer ${PC_BRIDGE_TOKEN}"`; in the cloud environment: the variable `PC_BRIDGE_TOKEN` = the
-     token, and the domain allowed in its network settings.
+     `"Authorization": "Bearer ${PC_BRIDGE_TOKEN}"`; in the cloud environment: the variables `PC_BRIDGE_TOKEN` = the
+     token and `PC_BRIDGE_URL` = `https://<domain>/mcp` (the setup script registers the server from them, for sessions
+     with several repos too), and the domain allowed in its network settings.
 - **SteamCMD** for Workshop uploads: unpack [steamcmd.zip](https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip)
   into `C:\steamcmd` and sign in once (`steamcmd +login <user>`); `v3 release build` prints the upload command.
 
