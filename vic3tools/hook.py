@@ -43,8 +43,11 @@ def _blank(text: str, rx: re.Pattern, group: int = 0) -> str:
 
 
 def _search_at(cmd: str) -> re.Match | None:
-    """The search command in a shell line, not a word inside a heredoc or a string."""
-    return _SHELL_SEARCH.search(_blank(_blank(cmd, _HEREDOC, 3), _QUOTED))
+    """The search command in a shell line, not a word inside a heredoc or a string, nor ``v3 save grep`` (a save's
+    text, not the game's files)."""
+    return _SHELL_SEARCH.search(_V3_GREP.sub(" ", _blank(_blank(cmd, _HEREDOC, 3), _QUOTED)))
+
+_V3_GREP = re.compile(r"\bv3\s+save\s+grep\b")
 _TOKEN = re.compile(r"'([^']*)'|\"([^\"]*)\"|(\S+)")
 _GAME_DIRS = re.compile(r"(?:^|[\s/\\\"'])(common|gui|localization|events|map_data)[/\\]", re.I)
 _SCRIPT_GLOB = re.compile(r"\.(txt|gui|yml)\b|\*\*?$|^\*$", re.I)

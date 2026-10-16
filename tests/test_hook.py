@@ -58,6 +58,7 @@ def test_what_passes(env):
         {"tool_name": "Grep", "tool_input": {"pattern": "unknown_name", "path": str(mod)}},  # the index lacks it
         {"tool_name": "Grep", "tool_input": {"pattern": "my_effect", "path": str(mod), "glob": "*.md"}},
         {"tool_name": "Bash", "cwd": str(mod), "tool_input": {"command": "git log --oneline"}},
+        {"tool_name": "Bash", "cwd": str(mod), "tool_input": {"command": "v3 save grep autosave my_effect"}},
         {"tool_name": "Read", "tool_input": {"file_path": str(mod / "gui/small.gui")}},
         {"tool_name": "Read", "tool_input": {"file_path": str(mod / "gui/big.gui"), "offset": 10, "limit": 20}},
     ):
