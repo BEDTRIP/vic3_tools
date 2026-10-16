@@ -1,4 +1,4 @@
-<!-- source: docs/usage.md @ d61abfc6a11e -->
+<!-- source: docs/usage.md @ eae6fc54c88e -->
 # Как пользоваться `v3`
 
 `v3` — одна команда для всех инструментов. У каждой подкоманды есть `--help`; вывод по умолчанию короткий, `--json`
@@ -296,6 +296,10 @@ v3 bench stop
 `py_tool`, `pull_repos`, `wt_diff` и `v3(args)` — команда `v3` на ПК (`vic3tools/bridge.py`). Только читающие
 команды и стенд: `gui set` — только с `--dry`; `lint --baseline`, `setup`, `hook`, `docs` отклоняются — облако правит
 свой клон и пушит. Снимки стенда читаются `get_image('bench/<шаг>/<имя>.png')`.
+
+Плагин Claude Code (навыки и хуки) ставится в облачную сессию скриптом настройки среды
+(`claude-plugin/cloud-setup.sh`; `.claude/settings.json` репо в облаке плагины не включает) — см.
+`claude-plugin/README.md`, «Cloud sessions».
 
 ### Сейвы и логи
 
