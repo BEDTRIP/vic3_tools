@@ -45,6 +45,8 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 bench start / do / shot / diff / stop` | the test bench: the game open in the sandbox VM; `shot NAME --crop x0,y0,x1,y1` sends the mod files changed since (the game in debug mode re-reads them) and takes a screenshot; `diff A B` — what changed; `do "<vic3_ui steps>"` — clicks, hovers, console |
 | `v3 save info / list / get / grep / vars / owners / buildings / companies / goods SAVE` | questions to a text save: indexed once (~10 s for 240 MB) into the cache, then read by pieces — a section or an entry, a country's variables and maps as numbers, who owns the production levels by owner class (with two saves: the gross additions and the transfers), buildings of a type, what companies own, a goods' flows |
 | `v3 log summary / diff / sites / speed` | the game's logs (or a run's folder with `dbgparts/` / `errparts/`): families of records, two runs compared, error records by the mod file and line (`--mod` maps a script effect's line to the file's), real seconds per game month |
+| `v3 log profile SHOT…` | screenshots of the script profiler window read by Windows OCR: entries with file:line, total / own seconds, calls, ms per tick; `--by-file`, `--compare SHOT…` (another run), `--csv` |
+| `v3 bench profile` | on the bench's open game: a capture (`--seconds`, `--speed`), then the profiler's root and edge views shot and read as `log profile` does |
 | `v3 def <name>…` | where a name is defined — records (with their line range), GUI types and templates, loc keys — and which definition wins |
 | `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
 | `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |
@@ -297,7 +299,30 @@ puts company types into a class of their own. Not production (left out): owner b
 centres, government, subsistence buildings, and prefixes given with `--skip`.
 
 `v3 log` reads `debug` / `warning` / `game` / `error` logs as records (a stamped line with its continuation lines);
-a family is the message with numbers and quoted names folded. `--skip REGEX` leaves out a mod's own log lines.
+a family is the message with game dates, numbers (with their sign) and quoted names folded. A mod's own
+`|`-separated lines fold further: a word field whose position takes more than 8 different words under the same head
+(a country, a building) becomes `…`, a kind field (`asset`, `budget`) stays — a one-minute run of the fork goes from
+14609 families to 767. `--skip REGEX` leaves out a mod's own log lines.
+
+### Script profiler as text: `v3 log profile`, `v3 bench profile`
+
+The game's script profiler cannot write a file (`ScriptProfiling.Dump` crashes 1.13.11), so its window is read from
+screenshots: `mods/profiler_view` lays it out as a table (type, callee, file:line, inclusive and exclusive seconds,
+calls), and Windows' own OCR (`Windows.Media.Ocr`, nothing to install; ~0.5 s a shot) reads it. OCR slips are mended:
+file names are snapped to the set's files (OCR drops underscores), types to the profiler's kinds, a missing file
+column is taken from the callee's `@file:line`; rows that do not read are counted, not guessed.
+
+```
+v3 bench start --mods <the set's mods…> mods/profiler_view   # the window's layout mod in the set
+v3 bench profile --seconds 60 --by-file                      # capture at speed 5, root and edge views as tables
+v3 log profile run1/e_edge.png --compare run2/e_edge.png     # own ms per tick, biggest change first
+```
+
+The root view lists the top entries by total time (on_actions, events, GUI, AI), the edge view the leaves by own
+time — usually the answer to "what is slow". A shot holds ~40 rows; an entry a shot does not show is "below its last
+row" (`<0.051` in a comparison), not zero. In the VM the "Activate Windows" watermark covers the last 2–3 rows: they are
+counted as not read. ms per tick divides by the capture's ticks, so captures of different
+length compare.
 
 ### Glossary
 

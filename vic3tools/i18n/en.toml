@@ -143,3 +143,6 @@ audit_holes_companies = "3. company buildings lost under a later body: {count} c
 audit_holes_builds = "4. builds against the mods loaded after them (replacing definitions of their keys)"
 audit_holes_economy = "5. private buildings lacking a required group ({groups}): {count}"
 gui_names = "{kind}: shared {shared}; only in {a} {na}; only in {b} {nb}"
+prof_shot = "{shot}: capture {capture} s, {ticks} ticks; current: {current}; rows {rows}, not read {dropped}"
+prof_by_file = "own time by file:"
+prof_compare = "own ms per tick: first run, second, change (biggest change first)"

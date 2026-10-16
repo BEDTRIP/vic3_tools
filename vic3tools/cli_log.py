@@ -7,7 +7,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from vic3tools import logs
+from vic3tools import logs, profile
 from vic3tools.core import paths
 from vic3tools.i18n import t
 
@@ -48,6 +48,19 @@ def add_parsers(sub) -> None:
     g.add_argument("folders", nargs="+", type=Path)
     g.add_argument("--from", dest="start", default="1836.2", help="leave out the start (YEAR.MONTH)")
     g.set_defaults(func=cmd_speed)
+
+    g = lsub.add_parser("profile", help="screenshots of the script profiler window (mods/profiler_view) read by "
+                        "Windows OCR: a table of entries with file:line, own / total seconds, calls, ms per tick",
+                        description=profile.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    g.add_argument("shots", nargs="+", type=Path, help="PNG shots of the profiler window (root, edge, a path)")
+    g.add_argument("--compare", nargs="+", type=Path, help="shots of another run: own ms per tick side by side")
+    g.add_argument("--by-file", action="store_true", help="own time summed by file")
+    g.add_argument("--csv", type=Path, help="write every entry to a CSV file")
+    g.add_argument("--top", type=int, default=25)
+    g.add_argument("--json", action="store_true")
+    g.add_argument("--playset", help="the set whose file names OCR slips are snapped to (default: the active one)")
+    g.add_argument("--mods", nargs="+", type=Path, help="mod folders instead of a playset")
+    g.set_defaults(func=cmd_profile)
 
 
 def _folder(f: Path | None) -> Path:
@@ -141,4 +154,68 @@ def cmd_speed(args, cfg) -> int:
             if qs is not None and len(q) >= 5:
                 print(f"    {date.fromordinal(q0)}: {qs:.2f} s/month ({len(q)})")
             q0 += 91
+    return 0
+
+
+def _set_files(args, cfg) -> list[str]:
+    """Base names of the set's script and GUI files (with the engine's), to snap OCR'd file names to."""
+    from vic3tools.cli_compat import mod_set
+    from vic3tools.index import query
+
+    try:
+        si = query.SetIndex.open(mod_set(args, cfg))
+    except (OSError, KeyError, ValueError):
+        return []
+    try:
+        names = {rel.rsplit("/", 1)[-1] for con in si.cons for (rel,) in con.execute("SELECT rel FROM files")}
+    finally:
+        si.close()
+    return sorted(n for n in names if n.endswith((".txt", ".gui")))
+
+
+def cmd_profile(args, cfg) -> int:
+    files = _set_files(args, cfg)
+    shots = profile.read(args.shots, files)
+    other = profile.read(args.compare, files) if args.compare else []
+    if args.csv:
+        profile.write_csv(shots + other, args.csv)
+    if args.json:
+        print(json.dumps([{"shot": str(s.path), "capture": s.capture, "ticks": s.ticks, "current": s.current,
+                           "dropped": s.dropped, "entries": [dict(e.__dict__, ms_per_tick=profile.per_tick(e, s))
+                                                             for e in s.entries]} for s in shots + other],
+                         ensure_ascii=False, indent=2))
+        return 0
+    show_profile(shots + other, args.top, args.by_file, table=not args.compare)
+    if args.compare:
+        print(t("prof_compare"))
+        def side(v, floor):
+            return f"{v:8.3f}" if v is not None else f"{'<' + format(floor, '.3f'):>8}"
+
+        for c in profile.compare(shots, other)[:args.top]:
+            print(f"  {side(c.a, c.floor_a)} {side(c.b, c.floor_b)} {c.delta:+8.3f}  {c.key}")
+    if args.csv:
+        print(args.csv)
+    return 0
+
+
+def show_profile(shots: list, top: int = 25, by_file: bool = False, table: bool = True) -> int:
+    """Print profiler shots: a head line each, then (``table``) callees by total and callers by own time."""
+    for s in shots:
+        print(t("prof_shot", shot=s.path.name, capture=s.capture, ticks=s.ticks, current=s.current or "-",
+                rows=len(s.entries), dropped=s.dropped))
+        if not table:
+            continue
+        for section, key in (("callees", lambda e: -e.incl), ("callers", lambda e: -e.excl)):
+            rows = sorted((e for e in s.entries if e.section == section), key=key)
+            if not rows:
+                continue
+            print(f"  {section}:  {'incl s':>8} {'excl s':>8} {'calls':>10} {'ms/tick':>8}  kind  file:line")
+            for e in rows[:top]:
+                where = f"{e.file}:{e.line}" if e.file else e.name
+                print(f"  {'':9} {e.incl:8.3f} {e.excl:8.3f} {e.calls:10d} {profile.per_tick(e, s):8.3f}  "
+                      f"{e.kind}  {where}")
+        if by_file:
+            print("  " + t("prof_by_file"))
+            for f, sec, n in profile.by_file(s.entries)[:top]:
+                print(f"    {sec:8.3f} s  {n:3d}  {f}")
     return 0

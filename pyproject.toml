@@ -22,7 +22,7 @@ v3 = "vic3tools.cli:main"
 include = ["vic3tools*"]
 
 [tool.setuptools.package-data]
-vic3tools = ["i18n/*.toml", "data/*.toml"]
+vic3tools = ["i18n/*.toml", "data/*.toml", "data/*.ps1"]
 
 [tool.ruff]
 line-length = 120

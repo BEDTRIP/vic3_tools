@@ -70,4 +70,8 @@ a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shot
 - **Tools:** `v3 log summary <run>` (families), `v3 log diff <base run> <run>` (what is new), `v3 log sites <run>
   --mod <mod>` (errors by the mod's file and line), `v3 log speed <runs>` (seconds per game month); a run's text
   saves — `v3 save info / owners / buildings / companies / vars / goods / grep` (indexed once, then by pieces).
+- **What is slow:** the script profiler as a table, not pictures — `v3 bench profile --seconds 60 --by-file` on a
+  bench started with `mods/profiler_view` in the set (root view: top entries by total time; edge view: leaves by own
+  time, with file:line and ms per tick); old shots — `v3 log profile <shots> [--compare <shots of another run>]`.
+  The shots are read by Windows OCR; read the picture itself only when the table says rows were not read.
 - Silence in the logs is not confirmation: many breakages log nothing (skill `vic3-modding`, `diagnostics.md`).

@@ -43,6 +43,14 @@ def add_parsers(sub, common: argparse.ArgumentParser) -> None:
     b.add_argument("--json", action="store_true")
     b.set_defaults(func=cmd_diff)
 
+    b = bsub.add_parser("profile", parents=[common], help="the script profiler on the open game: a capture, then "
+                        "its root and edge views read as a table (the set needs mods/profiler_view)")
+    b.add_argument("--seconds", type=int, default=60, help="the capture's length, the game running")
+    b.add_argument("--speed", type=int, default=5, choices=range(1, 6), help="game speed during the capture")
+    b.add_argument("--top", type=int, default=25)
+    b.add_argument("--by-file", action="store_true", help="own time summed by file")
+    b.set_defaults(func=cmd_profile)
+
     b = bsub.add_parser("stop", help="close the game in the VM and gather its logs")
     b.set_defaults(func=cmd_stop)
 
@@ -105,6 +113,18 @@ def cmd_diff(args, cfg) -> int:
         print(t("bench_diff", share=f"{d.changed:.2%}", box=",".join(map(str, d.bbox))))
     print(f"  {d.image}")
     return 0
+
+
+def cmd_profile(args, cfg) -> int:
+    from vic3tools import cli_log, profile
+
+    shots, problem = bench.profile(cfg, args.seconds, args.speed)
+    if problem:
+        print(problem)
+        for s in shots:
+            print(f"  {s}")
+        return 1
+    return cli_log.show_profile(profile.read(shots, cli_log._set_files(args, cfg)), args.top, args.by_file)
 
 
 def cmd_stop(args, cfg) -> int:

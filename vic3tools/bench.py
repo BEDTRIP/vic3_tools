@@ -109,6 +109,30 @@ def step(cfg: paths.Config, do: str, name: str = "") -> Step:
     return _run(cfg, "vic3_ui.ps1", {"Do": do}, with_game=True, name=name)
 
 
+def profile(cfg: paths.Config, seconds: int = 60, speed: int = 5) -> tuple[list[Path], str]:
+    """The script profiler on the open game (its set must have ``mods/profiler_view``): a capture of ``seconds`` at
+    ``speed``, then the window's root and edge views shot — the buttons found by OCR, so any scale works. Returns
+    the shots and a problem ("" when fine)."""
+    from vic3tools import ocr
+
+    st = step(cfg, f"console Script.Profiling.Start; key {speed}; key space; wait {seconds}; key space; "
+                   "console Script.Profiling.Stop; console Script.Profiling.Gui; wait 4; shot prof_open", "prof_open")
+    shot = st.out / "prof_open.png"
+    if not shot.is_file():
+        return [], f"no shot of the profiler window ({st.out})"
+    words = ocr.read([shot]).get(shot, [])
+    btn = {w.t.lower(): w for w in words if w.t.lower() in ("root", "edge")}
+    if not {"root", "callee"} <= {w.t.lower() for w in words} | set(btn):
+        return [shot], "the profiler window is not the profiler_view layout: is mods/profiler_view in the set?"
+    size = _pil()[0].open(shot).size
+    def at(w):
+        return f"{(w.x + w.w / 2) / size[0]:.4f} {(w.y + w.h / 2) / size[1]:.4f}"
+    st = step(cfg, f"click {at(btn['root'])}; wait 2; shot prof_root; click {at(btn['edge'])}; wait 3; shot prof_edge",
+              "prof_views")
+    shots = [st.out / n for n in ("prof_root.png", "prof_edge.png") if (st.out / n).is_file()]
+    return shots, "" if len(shots) == 2 else f"the views were not shot ({st.out})"
+
+
 def stop(cfg: paths.Config) -> Step:
     return _run(cfg, "vic3_ui.ps1", {"Do": "close"}, with_game=True, name="stop")
 
