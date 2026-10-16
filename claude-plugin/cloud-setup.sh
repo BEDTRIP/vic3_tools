@@ -36,4 +36,24 @@ export CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1
 claude plugin marketplace add "$MKT" || say "marketplace add failed ($MKT)"
 claude plugin install vic3tools@vic3tools --scope user || say "plugin install failed"
 claude plugin list 2>/dev/null | grep -A3 vic3tools || true
+
+# 3. the PC bridge (MCP server vic3-pc), user scope: a project's .mcp.json is read only from the session's working
+# folder, and a session with several repos works in their parent (/home/user), so it never sees vic3_mods/.mcp.json.
+# The URL: $PC_BRIDGE_URL, else the vic3-pc entry of a project's .mcp.json; the token: $PC_BRIDGE_TOKEN of the
+# environment (a new token needs the setup script re-run: change the script's text, e.g. a comment, to drop its cache).
+URL="${PC_BRIDGE_URL:-}"
+if [ -z "$URL" ]; then
+  for f in /home/user/vic3_mods/.mcp.json "$HOME/vic3_mods/.mcp.json" "$PWD/vic3_mods/.mcp.json" "$PWD/.mcp.json"; do
+    [ -f "$f" ] || continue
+    URL="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["mcpServers"]["vic3-pc"]["url"])' "$f" 2>/dev/null)"
+    [ -n "$URL" ] && break
+  done
+fi
+if [ -n "$URL" ] && [ -n "${PC_BRIDGE_TOKEN:-}" ]; then
+  claude mcp remove vic3-pc --scope user >/dev/null 2>&1 || true
+  claude mcp add --scope user --transport http vic3-pc "$URL" --header "Authorization: Bearer $PC_BRIDGE_TOKEN" \
+    >/dev/null 2>&1 && say "MCP server vic3-pc added ($URL)" || say "MCP server vic3-pc NOT added"
+else
+  say "no bridge URL or PC_BRIDGE_TOKEN - MCP server vic3-pc not added (projects' .mcp.json still works in a one-repo session)"
+fi
 exit 0
