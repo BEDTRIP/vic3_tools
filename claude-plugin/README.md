@@ -11,6 +11,10 @@ For coding agents working on Victoria 3 mods, on top of the `v3` command (instal
   add-ons, generators; `vic3-gui` — a GUI style file from vanilla (`v3 gui style`) and the passes audit / critique /
   polish with checklists and anti-patterns; `vic3-sandbox` — runs in the sandbox VM, the bench `v3 bench`, reading
   crashes and logs; `vic3-repo-rules` — git and safe writes of game files.
+- **Hook (SessionStart)** — `v3 hook session-start`. At a session's start the agent gets a short menu of what `v3`
+  can do (find, GUI, checks, saves and logs, the bench) and whether the session's folder is the game or a mod of the
+  set. So a project needs no section about `v3` in its own `CLAUDE.md`; which tool to use stays the agent's choice.
+  Silent when the game is not on the machine (a cloud session).
 - **Hook (PreToolUse on Grep, Bash, PowerShell, Read)** — `v3 hook pre-tool-use`. A text search for one identifier
   over the game, the Workshop or a mod of the active playset is refused the first time in a session, and the refusal
   carries the index's answer (`v3 def` + `v3 refs`, with the mods' folders). A read of a whole `.gui` / `.txt` over

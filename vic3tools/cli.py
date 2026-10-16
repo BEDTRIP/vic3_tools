@@ -58,6 +58,9 @@ def main(argv: list[str] | None = None) -> int:
     h = hsub.add_parser("post-tool-use", help="after an edit of a playset mod's file: its fast lint rules, known "
                         "reports left out, as context for the agent")
     h.set_defaults(func=cmd_hook_post)
+    h = hsub.add_parser("session-start", help="at a session's start: tell the agent what v3 can do and whether "
+                        "its folder is in the set")
+    h.set_defaults(func=cmd_hook_session)
 
     p = sub.add_parser("docs", help="checks of this repo's documents")
     dsub = p.add_subparsers(dest="docs_command", required=True, metavar="<check>")
@@ -214,6 +217,12 @@ def cmd_hook_post(args, cfg: paths.Config) -> int:
     from vic3tools import hook_lint
 
     return hook_lint.main()
+
+
+def cmd_hook_session(args, cfg: paths.Config) -> int:
+    from vic3tools import hook_session
+
+    return hook_session.main()
 
 
 def cmd_docs_check_ru(args, cfg: paths.Config) -> int:

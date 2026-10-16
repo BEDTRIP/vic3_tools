@@ -39,6 +39,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 doctor` | what is ready and what is not; exit code 1 if something is missing |
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
+| `v3 hook session-start` | the plugin's hook at a session's start: the agent gets a short menu of what `v3` can do and whether its folder is in the set — no section in a project's `CLAUDE.md` needed |
 | `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
 | `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
 | `v3 lint --triage` | every report, the baseline's too, in groups: new, untriaged, tracked (a `plan`), noise (a `why`) |

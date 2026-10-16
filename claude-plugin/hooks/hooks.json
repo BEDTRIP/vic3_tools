@@ -1,6 +1,22 @@
 {
-  "description": "A grep for a name, or a read of a whole big .gui/.txt, in game or mod folders gets the v3 index answer instead, once per session; an edit of a playset mod's file gets v3 lint's fast rules",
+  "description": "At a session's start the agent learns what v3 can do; a grep for a name, or a read of a whole big .gui/.txt, in game or mod folders gets the v3 index answer instead, once per session; an edit of a playset mod's file gets v3 lint's fast rules",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "v3",
+            "args": [
+              "hook",
+              "session-start"
+            ],
+            "timeout": 30,
+            "statusMessage": "v3: telling the agent what it can do"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Grep|Bash|PowerShell|Read",
