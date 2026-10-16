@@ -203,7 +203,7 @@ into groups by key and message with the names taken out — count, files, names,
 verdict: **new** (not in the baseline), **untriaged** (only the baseline knows it), **tracked** (`plan`), **noise**
 (`why`). Work the untriaged groups into tracked or noise, then `v3 lint --baseline` shrinks the baseline to what is
 left. Noise needs evidence: the game's own load log (`-debug_mode`) without an error in the mod's files, vanilla doing
-the same, a definition the engine makes itself. The fork, 16.10.2026: 5679 baselined → 2697 noise, 2982 tracked in its
+the same, a definition the engine makes itself. The fork, 16.10.2026: 5679 baselined → 2711 noise, 2968 tracked in its
 plan, a baseline of 4 tips.
 
 ```toml
@@ -214,8 +214,8 @@ message = "building type building_company_"
 why = "the engine makes building_company_<key> for every company type; the game logs nothing about them"
 
 [[suppress]]
-key = "modifiers"
-plan = "R12 Л.7: state modifiers in a country's static modifier do nothing"
+key = "gui-type-ignored"
+plan = "R12 Л.2: E&F copies of vanilla GUI types that never apply"
 
 [[rule]]
 name = "no-debug-log"
