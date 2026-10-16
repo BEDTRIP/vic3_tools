@@ -299,6 +299,10 @@ mod folder), `start_run` / `run_status` / `stop_run` (the game scripts with the 
 with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud edits its own clone and pushes. Shots
 of the bench are read with `get_image('bench/<step>/<name>.png')`.
 
+The Claude Code plugin (skills and hooks) is installed in a cloud session by the environment's setup script
+(`claude-plugin/cloud-setup.sh`; a repo's `.claude/settings.json` cannot enable plugins in the cloud) — see
+`claude-plugin/README.md`, «Cloud sessions».
+
 ### Saves and logs
 
 `v3 save` reads text saves (the game with `-debug_mode`, or `save_storage = text`; ironman and compressed binary saves

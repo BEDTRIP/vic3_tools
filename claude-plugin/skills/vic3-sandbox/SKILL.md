@@ -19,7 +19,9 @@ the user's language.
 - **On the PC** — the game takes the screen, mouse and keyboard: warn the user first; a script that sends keys must
   check the game window is in front before every key (keys typed into the user's chat happened).
 - **From a cloud session** — through the PC bridge (`vic3-pc` MCP, `bridge/pc/server.py` with the project's
-  `bridge.toml`): `v3(["bench", …])`, `start_run`, `run_status`, `get_image`, `read_text`, `grep`.
+  `bridge.toml`): `v3(["bench", …])`, `start_run`, `run_status`, `get_image`, `read_text`, `grep`. The plugin
+  itself (these skills) reaches a cloud session only through the environment's setup script, not through the repo's
+  `.claude/settings.json` — see `claude-plugin/README.md`, «Cloud sessions».
 
 The game scripts are `vic3_tools/bridge/game`: `run_vic3_sandbox.ps1` (load a new game or a save, run N minutes with
 the AI for everyone, console commands, autosaves, screens, gather the logs; `-KeepOpen` leaves the game paused) and
