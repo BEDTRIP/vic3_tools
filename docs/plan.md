@@ -348,8 +348,8 @@ offline, mods come from the PC.
   slower** (5–10 % was expected). Vulkan instead of DX11 — no difference (17.0–19.1 s, within the spread); the PC's
   power plan is "maximum performance" (user, 15.10). Open: an honest measurement — identical 5-year runs in the VM and
   on the PC with the PC idle.
-- Open: the skill `vic3-sandbox` — a section on the VM; `vic3_ui.ps1` (snapshots after a run, `-KeepOpen`) is not
-  carried over to the VM.
+- The skill `vic3-sandbox` has its VM section; `vic3_ui.ps1` steps run in the VM (`-Shots`, `-Countries`, the bench's
+  `-WithGame`; checked 16.10 with `-Observe` and two countries).
 
 ## Questions to the user
 
