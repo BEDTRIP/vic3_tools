@@ -315,7 +315,9 @@ only the game's folders, `.metadata` and the preview, from a git checkout only w
 `release/*` tag that touch the build — edit it), `description.<en|ru>.bbcode` and two VDFs for SteamCMD:
 `upload.vdf` (content, preview, title, change note; a new item starts private) and `upload_with_description.vdf` (the
 same + the English description — only after the diff the build prints is approved). The user runs
-`steamcmd +login <user> +workshop_build_item "<vdf>" +quit`; the Russian description is pasted on the item's page.
+`steamcmd +login <user> +workshop_build_item "<vdf>" +quit` (SteamCMD: `[release] steamcmd` in the config, else
+`PATH`, else `C:\steamcmd`; the first login asks for the password and Steam Guard once, later ones reuse it); the
+Russian description is pasted on the item's page.
 Then `v3 release done MOD --version V [--workshop-id N] [--with-description]` records the item's ID and the published
 description in the mod.
 

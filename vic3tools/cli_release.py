@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
+import shutil
 import subprocess
 import sys
 from datetime import date
@@ -121,6 +122,14 @@ def cmd_check(args, cfg) -> int:
     return 1 if _report(mod, args, cfg, ms) else 0
 
 
+def _steamcmd(cfg) -> str:
+    """SteamCMD: ``[release] steamcmd`` of the config, else on PATH, else C:/steamcmd; else just the name."""
+    for c in (cfg.get("release", "steamcmd"), shutil.which("steamcmd"), r"C:\steamcmd\steamcmd.exe"):
+        if c and Path(c).is_file():
+            return f'"{c}"' if " " in str(c) else str(c)
+    return "steamcmd"
+
+
 def _out(args) -> Path:
     return args.out or paths.tool_home() / "release"
 
@@ -144,10 +153,11 @@ def cmd_build(args, cfg) -> int:
         for line in diff[:60]:
             print("    " + line)
     print(t("release_next_new") if b.new_item else t("release_next_update", id=b.workshop_id))
-    print(f"  steamcmd +login <steam user> +workshop_build_item \"{b.out / 'upload.vdf'}\" +quit")
+    sc = _steamcmd(cfg)
+    print(f"  {sc} +login <steam user> +workshop_build_item \"{b.out / 'upload.vdf'}\" +quit")
     if "en" in b.descriptions:
         print(t("release_with_desc"))
-        print(f"  steamcmd +login <steam user> +workshop_build_item \"{b.out / 'upload_with_description.vdf'}\" +quit")
+        print(f"  {sc} +login <steam user> +workshop_build_item \"{b.out / 'upload_with_description.vdf'}\" +quit")
     if "ru" in b.descriptions:
         print(t("release_ru_by_hand", path=b.descriptions["ru"]))
     print(t("release_then_done", mod=args.mod, version=b.version))

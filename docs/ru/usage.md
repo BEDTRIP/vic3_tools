@@ -1,4 +1,4 @@
-<!-- source: docs/usage.md @ 2cfb2c5bf1db -->
+<!-- source: docs/usage.md @ 5a2ce47804ed -->
 # Как пользоваться `v3`
 
 `v3` — одна команда для всех инструментов. У каждой подкоманды есть `--help`; вывод по умолчанию короткий, `--json`
@@ -313,7 +313,9 @@ v3 bench stop
 поправить), `description.<en|ru>.bbcode` и два VDF для SteamCMD: `upload.vdf` (содержимое, превью, название, описание
 изменений; новый предмет — сначала скрытый) и `upload_with_description.vdf` (то же + английское описание — только после
 того, как одобрена разница, которую печатает сборка). Пользователь запускает
-`steamcmd +login <пользователь> +workshop_build_item "<vdf>" +quit`; русское описание вставляется на странице предмета.
+`steamcmd +login <пользователь> +workshop_build_item "<vdf>" +quit` (SteamCMD: `[release] steamcmd` в конфиге, иначе
+`PATH`, иначе `C:\steamcmd`; первый вход спрашивает пароль и Steam Guard один раз, дальше вход запомнен); русское
+описание вставляется на странице предмета.
 Затем `v3 release done МОД --version V [--workshop-id N] [--with-description]` записывает в мод ID предмета и выложенное
 описание.
 
