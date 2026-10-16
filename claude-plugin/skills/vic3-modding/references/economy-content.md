@@ -41,8 +41,10 @@
   152 years — forever. In a merge take the place from the mod with a literal.
 - The launcher's "Failed to process metadata" = `metadata.json` did not parse: BOM first (the usual cause), then
   `json.loads`, then the keys. Extra keys inside `game_custom_data` are tolerated.
-- **No nationalization effect** (all effects with text: `common/effect_localization`). `add_building_level = {
-  building = X level = -1 }` removes a level, but whose — the engine decides. `ai_nationalization_desire` of a building
+- **No nationalization effect** (all effects with text: `common/effect_localization`). There is no effect that takes
+  one level off a building either: `add_building_level` is unknown to 1.13 (`error.log`: "Unknown effect
+  add_building_level", run 2026-10-16); `remove_building` takes it whole. Raising: `create_building = { building = X
+  level = N }` on a standing building raises it to N (PSC's regulator). `ai_nationalization_desire` of a building
   affects the AI only; forbidding the player to privatize by script is impossible.
 - **A building's name and icon come from its type.** No "rename a building" effect; per building only in your own
   windows via `Building.GetCustom('<custom loc>')`. Different names and icons of "one" building = different types with
