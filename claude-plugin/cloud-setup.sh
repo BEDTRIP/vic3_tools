@@ -29,6 +29,35 @@ python3 -m pip install --quiet --disable-pip-version-check --break-system-packag
   | grep -v "Running pip as the 'root' user" || true
 command -v v3 >/dev/null && say "v3 installed ($PKG)" || say "v3 NOT installed - the plugin's hooks will fail quietly"
 
+# 1b. the repos' MCP servers (the PC bridge vic3-pc) for a session with several repos: Claude Code reads .mcp.json
+# only from the session's working folder, and such a session works in the repos' parent (/home/user). So their
+# mcpServers are merged into $PWD/.mcp.json. The files keep "${PC_BRIDGE_TOKEN}" as text: Claude Code fills it from the
+# environment at the session's start (the setup script itself sees none of the environment's variables, 16.10).
+if [ ! -d "$PWD/.git" ]; then
+  MERGED="$(python3 - "$PWD" <<'PY' 2>/dev/null
+import json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+servers = {}
+for f in sorted(root.glob("*/.mcp.json")):
+    try:
+        servers.update(json.loads(f.read_text(encoding="utf-8")).get("mcpServers") or {})
+    except (OSError, ValueError):
+        pass
+own = root / ".mcp.json"
+if servers:
+    if own.exists():
+        try:
+            servers = {**servers, **(json.loads(own.read_text(encoding="utf-8")).get("mcpServers") or {})}
+        except (OSError, ValueError):
+            pass
+    own.write_text(json.dumps({"mcpServers": servers}, indent=2) + "\n", encoding="utf-8")
+print(" ".join(servers))
+PY
+)"
+  [ -n "$MERGED" ] && say "MCP servers of the repos into $PWD/.mcp.json: $MERGED" || say "no repo has a .mcp.json - nothing to merge"
+fi
+
 # 2. the plugin, user scope (the session's ~/.claude)
 if ! command -v claude >/dev/null; then
   say "no claude CLI in the setup script - plugin not installed"
@@ -40,23 +69,4 @@ claude plugin marketplace add "$MKT" || say "marketplace add failed ($MKT)"
 claude plugin install vic3tools@vic3tools --scope user || say "plugin install failed"
 claude plugin list 2>/dev/null | grep -A3 vic3tools || true
 
-# 3. the PC bridge (MCP server vic3-pc), user scope: a project's .mcp.json is read only from the session's working
-# folder, and a session with several repos works in their parent (/home/user), so it never sees vic3_mods/.mcp.json.
-# The URL: $PC_BRIDGE_URL, else the vic3-pc entry of a project's .mcp.json; the token: $PC_BRIDGE_TOKEN of the
-# environment (a new token needs the setup script re-run: change the script's text, e.g. a comment, to drop its cache).
-URL="${PC_BRIDGE_URL:-}"
-if [ -z "$URL" ]; then
-  for f in /home/user/vic3_mods/.mcp.json "$HOME/vic3_mods/.mcp.json" "$PWD/vic3_mods/.mcp.json" "$PWD/.mcp.json"; do
-    [ -f "$f" ] || continue
-    URL="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["mcpServers"]["vic3-pc"]["url"])' "$f" 2>/dev/null)"
-    [ -n "$URL" ] && break
-  done
-fi
-if [ -n "$URL" ] && [ -n "${PC_BRIDGE_TOKEN:-}" ]; then
-  claude mcp remove vic3-pc --scope user >/dev/null 2>&1 || true
-  claude mcp add --scope user --transport http vic3-pc "$URL" --header "Authorization: Bearer $PC_BRIDGE_TOKEN" \
-    >/dev/null 2>&1 && say "MCP server vic3-pc added ($URL)" || say "MCP server vic3-pc NOT added"
-else
-  say "no bridge URL or PC_BRIDGE_TOKEN - MCP server vic3-pc not added (projects' .mcp.json still works in a one-repo session)"
-fi
 exit 0
