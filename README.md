@@ -32,7 +32,8 @@ Every command has `--help`; short output by default, `--json` for exact data. Ho
 
 ## Install
 
-Windows with Victoria 3 from Steam; Python 3.11 or newer. The package is not on PyPI — install it from GitHub:
+You need Windows with Victoria 3 from Steam, [Python](https://www.python.org/downloads/) 3.11 or newer and
+[Git](https://git-scm.com/downloads) (pip installs the package straight from GitHub; it is not on PyPI).
 
 ```
 pip install "vic3tools[img] @ git+https://github.com/BEDTRIP/vic3_tools"
@@ -44,14 +45,31 @@ or from a checkout: `git clone https://github.com/BEDTRIP/vic3_tools` and `pip i
 `[img]` extra is Pillow, needed only for screenshots of the bench and the sandbox (cropping, comparing); without it
 everything else works.
 
-- `v3 setup` finds the game, the Workshop and the documents folder (Steam's `libraryfolders.vdf`, the Windows
-  Documents folder), writes the user config `%LOCALAPPDATA%\vic3tools\vic3tools.toml` (only to correct what was found)
-  and builds the glossary and the index of the active launcher playset. `v3 doctor` says what is ready and what is not;
-  it exits with 1 while something is missing (in a cloud session, with no game, that is expected).
-- **First commands** to see it work: `v3 mods` (the active playset in load order), `v3 def <a scripted effect or
-  building of your mod>` (where it is defined and which definition wins), `v3 refs <the same name>` (who uses it).
-- **Language of the output:** English by default; Russian with `v3 --lang ru <command>`, the environment variable `V3_LANG=ru`,
-  or `lang = "ru"` in the user config (a Russian Windows gets it from the system locale).
+`v3 setup` finds the game, the Workshop and the documents folder (Steam's `libraryfolders.vdf`, the Windows Documents
+folder), writes the user config `%LOCALAPPDATA%\vic3tools\vic3tools.toml` (only to correct what was found) and builds
+the glossary and the index of the active playset. `v3 doctor` then says what is ready:
+
+```
+[ok] Python 3.14.6
+[ok] game: c:\games\steam\steamapps\common\Victoria 3
+[ok] workshop: c:\games\steam\steamapps\workshop\content\529340
+[ok] documents: C:\Users\you\Documents\Paradox Interactive\Victoria 3
+[ok] glossary for 1.13.11: C:\Users\you\AppData\Local\vic3tools\cache\glossary-1.13.11.sqlite
+[ok] tiger: C:\Users\you\AppData\Local\vic3tools\bin\vic3-tiger.exe
+Everything is ready.
+```
+
+It exits with 1 while something is missing. In a cloud session the game, the Workshop, the documents and tiger are all
+missing — that is expected there.
+
+- **The playset** is the list of mods you enable in the Paradox launcher before starting the game, in their load order.
+  `v3` reads the active one from the launcher (`--playset NAME` for another): it is the set `v3 def`, `refs`, `lint`
+  and the rest look at.
+- **First commands** to see it work: `v3 playsets` (the launcher's playsets, `*` — active), `v3 mods` (the active one
+  in load order), `v3 def <a scripted effect or building of your mod>` (where it is defined and which definition wins),
+  `v3 refs <the same name>` (who uses it).
+- **Language of the output:** English by default; Russian with `v3 --lang ru <command>`, the environment variable
+  `V3_LANG=ru`, or `lang = "ru"` in the user config (a Russian Windows gets it from the system locale).
 - **vic3-tiger** (for `v3 lint`): put `vic3-tiger.exe` from [its releases](https://github.com/amtep/tiger/releases) into
   `%LOCALAPPDATA%\vic3tools\bin`.
 - **Claude Code plugin:** in Claude Code
@@ -65,10 +83,17 @@ everything else works.
 Optional:
 
 - **Sandbox VM** for test runs off your screen (Hyper-V with a GPU partition): [`bridge/vm/README.md`](bridge/vm/README.md).
-- **PC bridge** for cloud sessions: `bridge/pc/start.ps1 -Config <project>\bridge.toml [-Vm]`. It needs
-  [ngrok](https://ngrok.com) with an account and its free static domain (`domain` in `[bridge]` of `bridge.toml`);
-  the token is made on the first start (`<home>\token.txt`) and goes into the cloud environment's variable
-  `PC_BRIDGE_TOKEN` — [`docs/usage.md`](docs/usage.md), «From a cloud session: the bridge».
+- **PC bridge**, so a cloud session (claude.ai/code) uses `v3` and runs the game on your PC:
+  1. [ngrok](https://ngrok.com): sign up, install it, `ngrok config add-authtoken <yours>`, and claim the free static
+     domain in its dashboard.
+  2. In your project, a `bridge.toml` with `[bridge] domain = "<that domain>"`, `port`, `home` (a folder outside git
+     for the token, runs and logs) and the repos the cloud may check out (`[repos.*]`); `docs/usage.md`, «From a cloud
+     session: the bridge», has the fields.
+  3. `powershell -ExecutionPolicy Bypass -File bridge\pc\start.ps1 -Config <project>\bridge.toml` (`-Vm` — runs in the
+     sandbox VM). The first start makes the venv and the token `<home>\token.txt`.
+  4. In the project's `.mcp.json`: the server `https://<domain>/mcp` with the header
+     `"Authorization": "Bearer ${PC_BRIDGE_TOKEN}"`; in the cloud environment: the variable `PC_BRIDGE_TOKEN` = the
+     token, and the domain allowed in its network settings.
 - **SteamCMD** for Workshop uploads: unpack [steamcmd.zip](https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip)
   into `C:\steamcmd` and sign in once (`steamcmd +login <user>`); `v3 release build` prints the upload command.
 
@@ -96,10 +121,13 @@ tests/            tests on small examples
 
 ```
 pip install -e ".[dev]"
-ruff check .
-pytest
+python -m ruff check .
+python -m pytest
 v3 docs check-ru
 ```
+
+(`python -m` runs the tools of the Python the package is installed in; a bare `pytest` may be another one — in a
+cloud session it is uv's, which does not see the package.)
 
 The same runs in CI on Windows and Linux. Rules:
 
