@@ -54,6 +54,9 @@ a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shot
   while a VM run goes.
 - To see your own window on screen, make it a child of a vanilla window or of `ingame_hud` (a copy of
   `gui/ingame_hud.gui`); a free-standing top-level widget is not drawn.
+- **Interface scale:** only the run's own flow (menu, goals, lobby clicks, game and date detection) is checked at another
+  scale (×1.3, r1016_sc13). The screen steps (`-Shots`, `-Countries`, `ui:`: cards, budget tabs, `hoverlink`, `browse`)
+  click at points measured at 1 and miss — `Invoke-SandboxRun.ps1` gives such runs scale 1 unless `-GuiScale` is set.
 - The played country must be a country, not observer mode — GUI commands do not run in observer mode (checked
   16.10.2026, r1016_obs4: E&F's GUI money bridge delivered 0 in all 201 lines, against ~97 % nonzero when a country is
   played). So `-Observe` runs suit "how the game goes", not a mod's GUI-fed numbers. Console: `observe` toggles

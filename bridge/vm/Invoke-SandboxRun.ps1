@@ -45,7 +45,8 @@ param(
     [switch]$FetchSaves,
     # a step on a game left open (run_vic3_sandbox.ps1 -KeepOpen): -Script vic3_ui.ps1; changed mod files still travel
     [switch]$WithGame,
-    # the guest's interface scale (GUI.scale) and language (l_english, l_russian…) instead of the host's
+    # the guest's interface scale (GUI.scale) and language (l_english, l_russian…) instead of the host's; a run with screen
+    # steps gets scale 1 unless -GuiScale is given (the steps' points are measured at 1)
     [string]$GuiScale = "",
     [string]$Language = "",
     [string]$Name = "vic3-sandbox",
@@ -185,6 +186,12 @@ try {
     # the host's game settings (interface scale, language, autosaves: the run scripts click at places measured on
     # the host and read half-yearly autosaves; the renderer -- Vulkan works through GPU-P too) and key bindings
     $settings = Get-Content (Join-Path $HostDocs "pdx_settings.json") -Raw -Encoding UTF8
+    # screen steps (-Shots, -Countries, ui: commands, a vic3_ui.ps1 step) click at points measured at scale 1 and only the
+    # run's own flow follows the scale (r1016_sc13 at 1.3: menu, lobby, game, date fine; the cards and budget tabs missed)
+    # -- scale 1 for them unless -GuiScale is given
+    if ($ParamsJson -like "*.json" -and (Test-Path -LiteralPath $ParamsJson)) { $ParamsJson = Get-Content -LiteralPath $ParamsJson -Raw -Encoding UTF8 }
+    $pj = $ParamsJson | ConvertFrom-Json
+    if (-not $GuiScale -and ($Script -eq "vic3_ui.ps1" -or $pj.Shots -or $pj.Countries -or "$($pj.Commands)" -match 'ui:')) { $GuiScale = "1" }
     if ($GuiScale) { $settings = $settings -replace '("GUI":\s*\{[^}]*?"scale":\s*")[^"]*"', "`${1}$GuiScale`"" }
     if ($Language) { $settings = $settings -replace '("language":\s*")[^"]*"', "`${1}$Language`"" }
     if ($GuiScale -or $Language) { Say "settings: scale $(if ($GuiScale) { $GuiScale } else { 'as host' }), language $(if ($Language) { $Language } else { 'as host' })" }
