@@ -6,7 +6,7 @@ For coding agents working on Victoria 3 mods, on top of the `v3` command (instal
 - **Skill `vic3-search`** — when a question is "where is X defined, who uses it, which mod wins, what does this loc key
   say, what is in this big file", use `v3 def` / `refs` / `winner` / `loc` / `outline` instead of grep and reading
   whole files.
-- **Skills for the work itself** (stage 7): `vic3-modding` — how the engine loads and merges mods and the facts
+- **Skills for the work itself:** `vic3-modding` — how the engine loads and merges mods and the facts
   checked in the game (a short core + references by topic); `vic3-compat` — compatibility patches, merges, megapacks,
   add-ons, generators; `vic3-gui` — a GUI style file from vanilla (`v3 gui style`) and the passes audit / critique /
   polish with checklists and anti-patterns; `vic3-sandbox` — runs in the sandbox VM, the bench `v3 bench`, reading

@@ -269,7 +269,7 @@ scaled pixels (EBGaramond 20 px: 27, not 1.25 × 20): rows down a long column la
 
 ### Test bench: `v3 bench`
 
-The loop "edit a `.gui` → see it" without a run, in the sandbox VM (`bridge/vm`, see the plan's "Runs sandbox"):
+The loop "edit a `.gui` → see it" without a run, in the sandbox VM (`bridge/vm`, [`bridge/vm/README.md`](../bridge/vm/README.md)):
 
 ```
 v3 bench start                          # the playset's mods, a new game as SWI (or --save NAME), left paused

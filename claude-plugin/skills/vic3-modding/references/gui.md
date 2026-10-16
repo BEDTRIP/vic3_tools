@@ -1,6 +1,6 @@
 # GUI (1.13)
 
-Checked in the game with a probe window on 2026-10-15 (vic3_tools stage 3) unless dated otherwise. Work with
+Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Work with
 `v3 gui resolve / types / templates / fit / set` and the bench `v3 bench` (skill `vic3-gui`).
 
 - **The engine finds widgets by name. A stale copy of a vanilla `.gui` missing a widget = a crash**, not a log line.

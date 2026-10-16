@@ -1,43 +1,84 @@
 # vic3_tools
 
-Tools for Victoria 3 modding, for modders and coding agents: script parsing and indexing, compatibility checks,
-GUI help, save and log analysis, and a sandbox for test runs of the game. Work in progress.
+Tools for Victoria 3 modding — for modders and for AI coding agents (Claude Code). One command, `v3`, answers the
+questions modding keeps asking: where a thing is defined and which mod's definition the game actually takes, who uses
+it, what a GUI widget really gets, whether two mods conflict, what a save or a log says, how a mod goes to the Steam
+Workshop. A Claude Code plugin teaches an agent to use it, and a sandbox VM lets an agent run the game without taking
+your screen.
 
-Nothing from the game is stored here: the tools read the game, Steam Workshop mods and the game's documents
-folder in place on your machine.
+Nothing from the game is stored here: the tools read the game, the Workshop mods and the game's documents folder in
+place on your machine, and keep their index in a cache outside the repo.
+
+## What is inside
+
+| | commands |
+| --- | --- |
+| **Find** | `v3 def` (where defined, who wins), `v3 refs` (who uses, reads, writes), `v3 loc` (a key's text, the key behind a text seen in game), `v3 outline` (a big file's tree), `v3 winner` (the chain across mods), `v3 glossary` |
+| **GUI** | `v3 gui resolve` (a widget after types / templates / blocks), `gui types / templates / textures`, `gui set --dry` (an exact edit), `gui fit` (does a text fit in 11 languages), `gui render` / `gui grid` (a picture without the game) |
+| **Check** | `v3 lint` (vic3-tiger with the mods loaded before, plus own rules; known reports left out), `v3 audit`, `v3 conflicts`, `v3 matrix` |
+| **Saves and logs** | `v3 save` (a text save, read by pieces), `v3 log` (record families, two runs compared, run speed, the script profiler read by OCR) |
+| **Release** | `v3 release check / build / done` (a clean build for the Workshop, change note, BBCode description, a SteamCMD VDF), `v3 release zip` (a playset as a ready set), `v3 mods snapshot` (the playset's mods' versions kept in git) |
+| **Game** | `v3 bench` (the game open in the sandbox VM: edit → screenshot → diff), sandbox runs (`bridge/game`, `bridge/vm`) |
+
+Every command has `--help`; short output by default, `--json` for exact data. How to use them:
+[`docs/usage.md`](docs/usage.md) ([по-русски](docs/ru/usage.md)).
+
+- **Claude Code plugin** (`claude-plugin/`): skills — `vic3-search`, `vic3-modding` (how the engine loads and merges
+  mods, facts checked in the game), `vic3-compat` (compatibility patches, megapacks), `vic3-gui`, `vic3-sandbox`,
+  `vic3-repo-rules`; hooks — at a session's start the agent learns what `v3` can do; a grep for a name in game or mod
+  folders gets the index's answer; an edited mod file gets lint's fast rules.
+- **PC bridge** (`bridge/pc/`): an MCP server through an ngrok tunnel, so a cloud session (claude.ai/code) runs `v3`
+  and game runs on your PC.
 
 ## Install
 
-Python 3.11 or newer.
+Windows with Victoria 3 from Steam; Python 3.11 or newer.
 
 ```
-pip install -e .
+pip install "vic3tools[img] @ git+https://github.com/BEDTRIP/vic3_tools"
 v3 setup
 v3 doctor
 ```
 
-`v3 setup` finds the game, the Workshop and the game's documents folder, writes the user config and builds the
-cache; `v3 doctor` tells what is ready. How to use the commands: [`docs/usage.md`](docs/usage.md)
-([по-русски](docs/ru/usage.md)).
+or from a checkout: `git clone https://github.com/BEDTRIP/vic3_tools` and `pip install -e "vic3_tools[img]"`.
 
-## Contents
+- `v3 setup` finds the game, the Workshop and the documents folder (Steam's `libraryfolders.vdf`, the Windows
+  Documents folder), writes the user config `%LOCALAPPDATA%\vic3tools\vic3tools.toml` (only to correct what was found)
+  and builds the glossary and the index of the active launcher playset. `v3 doctor` says what is ready and what is not.
+- **vic3-tiger** (for `v3 lint`): put `vic3-tiger.exe` from [its releases](https://github.com/amtep/tiger/releases) into
+  `%LOCALAPPDATA%\vic3tools\bin`.
+- **Claude Code plugin:** in Claude Code
+  ```
+  /plugin marketplace add BEDTRIP/vic3_tools
+  /plugin install vic3tools@vic3tools
+  ```
+  `v3` must be on `PATH` for the hooks. Cloud sessions: put `claude-plugin/cloud-setup.sh` into the cloud environment's
+  setup script ([`claude-plugin/README.md`](claude-plugin/README.md)).
 
-- `vic3tools/` — the Python package behind the `v3` command: finding the roots and the config (`core/paths.py`),
-  the script parser (`core/script.py`), the game's virtual file system and load-order rules (`core/vfs.py`), readers
-  for Steam's `.vdf` and the game's localization, compatibility of a mod set (`compat/`: index, who wins, conflicts,
-  audits), the glossary, the message catalog (`i18n/`, English and Russian).
-- `claude-plugin/` — the Claude Code plugin (empty for now); `.claude-plugin/marketplace.json` makes this repo its
-  marketplace.
-- `docs/` — documents in English, `docs/ru/` — their Russian translations; `docs/benchmarks/` — token and turn counts
-  of a fresh agent on reference tasks, before and after the tools.
+Optional:
 
-- `bridge/vm/` — a Hyper-V VM with a GPU partition (GPU-P) that runs the game for test runs, so a run does not
-  take the host's screen, mouse and keyboard:
-  `New-SandboxVM.ps1` creates the VM, `Copy-GpuDriver.ps1` copies the host GPU driver into it
-  (again after every host driver update), `Initialize-SandboxGuest.ps1` sets the guest up for unattended runs
-  (autologon, 2560x1440 screen, Steam offline, Defender exclusions), `Invoke-SandboxRun.ps1` runs a game run
-  script in the guest: it mirrors the run's mods and the host's game settings into the guest, starts the run on
-  the guest's desktop and brings its output and saves back.
+- **Sandbox VM** for test runs off your screen (Hyper-V with a GPU partition): [`bridge/vm/README.md`](bridge/vm/README.md).
+- **PC bridge** for cloud sessions: `bridge/pc/start.ps1 -Config <project>\bridge.toml [-Vm]` (an ngrok domain; the
+  token is made on the first start) — [`docs/usage.md`](docs/usage.md), «From a cloud session: the bridge».
+- **SteamCMD** for Workshop uploads: unpack [steamcmd.zip](https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip)
+  into `C:\steamcmd` and sign in once (`steamcmd +login <user>`); `v3 release build` prints the upload command.
+
+Updating: `pip install -U …` (or `git pull` in a checkout); the cache follows the game's version and the playset by
+itself, and `/plugin update` refreshes the plugin.
+
+## Layout
+
+```
+vic3tools/        the package behind `v3`: core (paths, parser, load order), index, lint, gui, compat, save, logs,
+                  release, the message catalog (i18n/, English and Russian)
+claude-plugin/    the Claude Code plugin: skills, hooks, the cloud setup script
+bridge/game/      the game run scripts (PowerShell): new game / save, AI for all, screenshots, logs
+bridge/vm/        the sandbox VM: create, set up, run in it
+bridge/pc/        the PC bridge (MCP server) for cloud sessions
+mods/             small helper mods (profiler_view: the script profiler full screen)
+docs/             usage (and docs/ru/), benchmarks of an agent on reference tasks
+tests/            tests on small examples
+```
 
 ## Development
 
@@ -48,9 +89,16 @@ pytest
 v3 docs check-ru
 ```
 
-The same runs in CI on Windows and Linux. Code, names, comments, `--help` and documents are in English; command
-output goes through the message catalog (`vic3tools/i18n/`), and documents for people have a Russian mirror in
-`docs/ru/`.
+The same runs in CI on Windows and Linux. Rules:
+
+- Code, names, comments, `--help`, skills and documents are in English; command output goes through the message
+  catalog (`vic3tools/i18n/`, `en` / `ru`); documents for people have a Russian mirror in `docs/ru/`, each with a mark
+  of the English version it was translated from (`v3 docs check-ru` shows stale ones).
+- A docstring and `--help` say what a command does and how to call it, without history (that is in git).
+- Output is short and limited by default; long output goes to a file, the screen gets the path and a summary.
+- Nothing writes outside the given folders; a generator has `--check`. A one-off probe belongs to the project that
+  needed it, not here.
+- Before publishing: no secrets or personal data (tokens, bridge addresses, paths with a user name, e-mail).
 
 ## License
 

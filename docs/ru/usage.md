@@ -269,7 +269,7 @@ v3 gui grid gui/my_panel.gui:120 --langs russian,english --scales 1,1.3 --screen
 
 ### Стенд: `v3 bench`
 
-Цикл «правка `.gui` → посмотреть» без прогона, в ВМ-песочнице (`bridge/vm`, раздел плана «Песочница прогонов»):
+Цикл «правка `.gui` → посмотреть» без прогона, в ВМ-песочнице (`bridge/vm`, [`bridge/vm/README.md`](../../bridge/vm/README.md)):
 
 ```
 v3 bench start                          # моды плейсета, новая игра за SWI (или --save ИМЯ), на паузе

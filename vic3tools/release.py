@@ -1,6 +1,6 @@
 """Release a mod to the Steam Workshop: checks, a clean build, the change note, the description, the SteamCMD VDF.
 
-The flow (``v3 release``, stage 14 of the plan):
+The flow:
 
 - ``check`` — what would go wrong: the metadata, the preview, the game version, dependencies missing from the playset,
   what the build leaves out, the description's length and images, the version against the last release tag.
