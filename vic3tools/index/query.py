@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from vic3tools.core import script
-from vic3tools.core.vfs import Mod, ModSet, loads
+from vic3tools.core.vfs import Mod, ModSet, engine_mods, loads
 from vic3tools.index import db
 
 WRITE_KEYS = {"set_variable", "change_variable", "add_to_variable_list", "set_global_variable",
@@ -61,15 +61,18 @@ class Hit:
 
 @dataclass
 class SetIndex:
-    """Open indexes of every mod of a set, vanilla first."""
+    """Open indexes of every mod of a set: the engine's folders, vanilla, the mods — ``mods`` and ``cons`` in that
+    order (``ms.mods`` stays the set itself, vanilla first)."""
 
     ms: ModSet
     cons: list[sqlite3.Connection] = field(default_factory=list)
     live: dict[str, int] = field(default_factory=dict)  # rel → index of the mod whose copy loads
+    mods: list[Mod] = field(default_factory=list)
 
     @classmethod
     def open(cls, ms: ModSet, rebuild: bool = False) -> SetIndex:
-        si = cls(ms, [db.open_index(m, rebuild) for m in ms.mods])
+        mods = (engine_mods(ms.mods[0]) if ms.mods else []) + list(ms.mods)
+        si = cls(ms, [db.open_index(m, rebuild) for m in mods], mods=mods)
         for i, con in enumerate(si.cons):
             for (rel,) in con.execute("SELECT rel FROM files"):
                 si.live[rel] = i
@@ -91,7 +94,7 @@ class SetIndex:
                    "JOIN names n ON n.id = d.name_id JOIN files f ON f.id = d.file_id WHERE n.name = ? "
                    "ORDER BY f.rel, d.line")
             for rel, line, end, kind, folder, directive in con.execute(sql, (name,)):
-                out.append(Hit(self.ms.mods[i], rel, line, end, kind, folder, directive, name=name,
+                out.append(Hit(self.mods[i], rel, line, end, kind, folder, directive, name=name,
                                replaced=self._replaced(i, rel)))
         return out
 
@@ -121,7 +124,7 @@ class SetIndex:
                 if (rel, line, path) in seen:
                     continue
                 seen.add((rel, line, path))
-                out.append(Hit(self.ms.mods[i], rel, line, ctx=ctx or "", path=path or "", name=name,
+                out.append(Hit(self.mods[i], rel, line, ctx=ctx or "", path=path or "", name=name,
                                replaced=self._replaced(i, rel)))
         return out
 
@@ -129,7 +132,7 @@ class SetIndex:
         """References of a plain word the index leaves out, by reading the script files (whole words only)."""
         rx = re.compile(rf"(?<![\w.:]){re.escape(word)}(?![\w])")
         out = []
-        for i, (m, con) in enumerate(zip(self.ms.mods, self.cons, strict=True)):
+        for i, (m, con) in enumerate(zip(self.mods, self.cons, strict=True)):
             for (rel,) in con.execute("SELECT rel FROM files"):
                 if db.kind_of(rel) not in ("db", "gui"):
                     continue
@@ -147,7 +150,7 @@ class SetIndex:
             sql = ("SELECT f.rel, t.line, t.lang, t.text FROM loc_text t JOIN files f ON f.id = t.file_id "
                    "WHERE t.key = ? ORDER BY t.lang, f.rel")
             for rel, line, lang, text in con.execute(sql, (key,)):
-                out.append((Hit(self.ms.mods[i], rel, line, folder=lang, name=key,
+                out.append((Hit(self.mods[i], rel, line, folder=lang, name=key,
                                 replaced=self._replaced(i, rel)), text))
         return out
 
@@ -180,7 +183,7 @@ class SetIndex:
                     pos, covered = j + len(p), covered + len(p)
                 else:
                     if covered:
-                        out.append((covered, Hit(self.ms.mods[i], rel, line, folder=lang, name=key,
+                        out.append((covered, Hit(self.mods[i], rel, line, folder=lang, name=key,
                                                  replaced=self._replaced(i, rel)), text))
         out.sort(key=lambda x: (-x[0], x[1].name))
         return out[:limit]

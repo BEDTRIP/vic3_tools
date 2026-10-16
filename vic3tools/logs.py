@@ -3,7 +3,10 @@
 A record is a line ``[HH:MM:SS][file.cpp:N]: message`` plus the lines after it without a stamp. A folder is the
 game's ``logs/`` or a run's folder (the run scripts also keep ``dbgparts/`` and ``errparts/`` — copies of rotated
 ``debug.log`` / ``error.log`` taken during the run; the same file is read once). The **family** of a message is its
-text with numbers → ``N`` and quoted names → ``'…'`` (names kept for "Unknown …", where the name is the point).
+text with game dates → ``DATE``, numbers → ``N`` and quoted names → ``'…'`` (names kept for "Unknown …", where the name
+is the point). A mod's own ``|``-separated lines (``EFD|DATE|Чили|asset|kind N|…``) are collapsed further: a field
+position that takes many different words among lines of the same shape (a country, a building) becomes ``…``, one
+that takes few (``asset``, ``budget``) stays.
 
 Engine facts used:
 
@@ -23,7 +26,7 @@ from datetime import date
 from pathlib import Path
 
 HEAD = re.compile(r"^\[(\d\d):(\d\d):(\d\d)\]\[([^\]]*)\]:\s?(.*)")
-NUM = re.compile(r"\d+(\.\d+)?")
+NUM = re.compile(r"(?:(?<!\w)-)?\d+(\.\d+)?")  # a sign folds in; a range (1-2) keeps its dash
 QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 UNUSED = re.compile(r"(\w+(?: target)?) '([^']+)' is (set|used) but is never (?:used|set)")
 LOC = re.compile(r"((?:common|gui|events|localization)/[^'\"\n:]+?\.(?:txt|gui|yml))"
@@ -82,7 +85,34 @@ def records(folder: Path, kind: str) -> Iterator[Record]:
 def family(msg: str) -> str:
     first = msg.split("\n", 1)[0]
     s = first if "nknown" in first else QUOTED.sub("'…'", first)
+    s = GAME_DATE.sub(lambda m: m[0][: m.start(1) - m.start(0)] + "DATE", s)
     return NUM.sub("N", s)[:220]
+
+
+VARIED = 8  # a field position with more different words than this is a name, not a kind
+_N = re.compile(r"\bN\b|DATE")
+
+
+def collapse(families: Counter) -> dict[str, str]:
+    """Family → its collapsed family, for the ``|``-separated ones: a word field (no number in it) whose position
+    takes more than ``VARIED`` different words among the lines with the same head (``x.txt:N: EFD``) is a name."""
+    seen: dict[tuple[str, int], set[str]] = {}
+    split = {}
+    for k in families:
+        if k.count("|") < 3:
+            continue
+        fields = k.split("|")
+        split[k] = fields
+        for i, f in enumerate(fields[1:], 1):
+            if not _N.search(f):
+                s = seen.setdefault((fields[0], i), set())
+                if len(s) <= VARIED:
+                    s.add(f)
+    out = {}
+    for k, fields in split.items():
+        out[k] = "|".join("…" if i and not _N.search(f) and len(seen[(fields[0], i)]) > VARIED else f
+                          for i, f in enumerate(fields))
+    return out
 
 
 @dataclass
@@ -112,6 +142,14 @@ def summarize(folder: Path, kind: str, skip: str | None = None) -> Summary:
         u = UNUSED.match(r.text)
         if u:
             s.unused[(u[1], u[2], u[3])] += 1
+    to = collapse(s.families)
+    if to:
+        fam, ex = Counter(), {}
+        for k, n in s.families.items():
+            c = to.get(k, k)
+            fam[c] += n
+            ex.setdefault(c, s.example[k])
+        s.families, s.example = fam, ex
     return s
 
 

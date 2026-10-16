@@ -82,7 +82,7 @@ class Resolver:
         return self._defs[k]
 
     def _find(self, kind: str, name: str) -> GNode | None:
-        order = {m: i for i, m in enumerate(self.si.ms.mods)}
+        order = {m: i for i, m in enumerate(self.si.mods)}
         hits = [h for h in self.si.defs(name) if h.kind == "gui_" + kind and h.loads]
         hits.sort(key=lambda h: (h.rel.rsplit("/", 1)[-1].encode(), h.rel.count("/"), order[h.mod], h.line))
         for h in hits:
@@ -108,7 +108,7 @@ class Resolver:
             return "", ""
         if f not in self._where:
             self._where[f] = ("", f.as_posix())
-            for m in reversed(self.si.ms.mods):
+            for m in reversed(self.si.mods):
                 try:
                     self._where[f] = (m.name, f.relative_to(m.path).as_posix())
                     break

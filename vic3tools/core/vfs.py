@@ -14,6 +14,9 @@ mod folders. The rules, as observed in the game (1.13):
   overrides keys defined outside it.
 - **GUI types:** the first registration wins, files ordered by file name (ASCII) across all mods at once, mod order
   not counted; with equal names, the file closer to the root of ``gui/`` first.
+- **The engine's own folders** next to ``game/`` — ``clausewitz/`` and then ``jomini/`` — load before vanilla, as
+  layers under it (their GUI types, localization, fonts, textures; ``clausewitz/gui/profiler.gui`` is the script
+  profiler's window). The index reads them (``engine_mods``); a mod set stays "vanilla first".
 """
 
 from __future__ import annotations
@@ -42,7 +45,7 @@ def loads(rel: str) -> bool:
 class Mod:
     name: str
     path: Path
-    kind: str = "mod"  # "vanilla", "workshop", "local", "mod"
+    kind: str = "mod"  # "engine", "vanilla", "workshop", "local", "mod"
 
     def __str__(self) -> str:
         return self.name
@@ -158,6 +161,17 @@ class ModSet:
     def file_chain(self, rel: str) -> list[VFile]:
         """Every mod's copy of one relative path, in load order; the last one is what loads."""
         return [VFile(m, rel, i) for i, m in enumerate(self.mods) if (m.path / rel).is_file()]
+
+
+ENGINE_FOLDERS = ("clausewitz", "jomini")  # in load order, both before game/
+
+
+def engine_mods(vanilla: Mod) -> list[Mod]:
+    """The engine's folders under vanilla (``clausewitz/``, ``jomini/`` next to ``game/``) that exist."""
+    if vanilla.kind != "vanilla":
+        return []
+    root = vanilla.path.parent
+    return [Mod(name, root / name, "engine") for name in ENGINE_FOLDERS if (root / name).is_dir()]
 
 
 def vanilla_mod(roots: dict[str, paths.Root]) -> Mod:

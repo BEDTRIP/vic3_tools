@@ -40,6 +40,18 @@ def test_summary_sites_compare(tmp_path):
     assert [k for k, _n in d.gone] == [] and len(d.new) == 3  # the same family in both: not new
 
 
+def test_mod_lines_collapse(tmp_path):
+    names = ["Чили", "Куба", "Оман", "Сербия", "Любек", "Гамбург", "Египет", "Бавария", "Новая Шотландия", "Перу"]
+    lines = [f"[10:00:0{i % 10}][jomini_effect_impl.cpp:454]: x.txt:9: EFD|марта {i}, 1836|{c}|asset|kind {i}|r -{i}"
+             for i, c in enumerate(names)]
+    lines += [f"[10:00:01][jomini_effect_impl.cpp:454]: x.txt:9: EFD|мая 1, 1836|{c}|budget|inc {i}"
+              for i, c in enumerate(names[:2])]
+    write(tmp_path / "debug.log", "\n".join(lines) + "\n")
+    s = logs.summarize(tmp_path, "debug")
+    assert s.families == {"x.txt:N: EFD|DATE|…|asset|kind N|r N": 10, "x.txt:N: EFD|DATE|…|budget|inc N": 2}
+    assert logs.family("range 1-2, m3") == "range N-N, mN"
+
+
 def test_real_lines(tmp_path):
     f = write(tmp_path / "e.txt", "my_effect = {\n\n\t# a comment\n\tset_variable = x\n}\nother = {\n\ta = b\n}\n")
     assert logs.real_lines(f, 2) == [4]  # error.log says 2: the blank and the comment line before are not counted

@@ -96,7 +96,7 @@ class Renderer:
 
     def _formats(self) -> dict[str, str]:
         out: dict[str, str] = {}
-        for m in self.si.ms.mods:
+        for m in self.si.mods:
             p = m.path / "gui" / "textformatting.gui"
             if p.is_file():
                 for _t, nd in tree.walk(tree.parse_file(p)):
@@ -123,7 +123,7 @@ class Renderer:
 
     def texture(self, rel: str) -> Path | None:
         rel = rel.strip('"').replace("\\", "/")
-        for m in reversed(self.si.ms.mods):
+        for m in reversed(self.si.mods):
             p = m.path / rel
             if p.is_file():
                 return p

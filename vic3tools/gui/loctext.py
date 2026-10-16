@@ -12,7 +12,7 @@ from vic3tools.index.query import Hit, SetIndex
 
 def texts(si: SetIndex, key: str, langs: list[str]) -> dict[str, tuple[str, Hit]]:
     """The text of ``key`` the game shows in each language (``replace/`` first, else the first in load order)."""
-    order = {m: i for i, m in enumerate(si.ms.mods)}
+    order = {m: i for i, m in enumerate(si.mods)}
     out = {}
     hits = [h for h in si.defs(key) if h.kind == "loc" and h.loads]
     for lang in langs:

@@ -104,10 +104,11 @@ def _unbalanced_line(text: str, bal: int) -> int:
 
 
 def gui_types_ignored(si: SetIndex, mod_i: int, files: set[str] | None = None) -> list[Report]:
-    order = {m: i for i, m in enumerate(si.ms.mods)}
+    order = {m: i for i, m in enumerate(si.mods)}
     mod = si.ms.mods[mod_i]
-    rows = si.cons[mod_i].execute("SELECT n.name, f.rel, d.line FROM defs d JOIN names n ON n.id = d.name_id "
-                                  "JOIN files f ON f.id = d.file_id WHERE d.kind = 'gui_type'").fetchall()
+    con = si.cons[si.mods.index(mod)]
+    rows = con.execute("SELECT n.name, f.rel, d.line FROM defs d JOIN names n ON n.id = d.name_id "
+                       "JOIN files f ON f.id = d.file_id WHERE d.kind = 'gui_type'").fetchall()
     out = []
     for name, rel, line in rows:
         if files is not None and rel not in files:

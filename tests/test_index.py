@@ -21,6 +21,8 @@ def setidx(tmp_path, home):
     write(van / "gui/p.gui", 'types T {\n\ttype my_panel = window {\n\t\tname = "the_panel"\n'
                              '\t\ttextbox = {\n\t\t\ttext = "MY_TEXT"\n\t\t\tsize = { 10 20 }\n\t\t}\n\t}\n}\n'
                              "template my_tpl {\n\tfontsize = 20\n}\n")
+    write(van.parent / "clausewitz/localization/cw_settings_l_english.yml", 'l_english:\n CW_KEY: "Interface Scale"\n')
+    write(van.parent / "jomini/gui/j.gui", "types J {\n\ttype engine_panel = widget {\n\t}\n}\n")
     write(m1 / "common/scripted_effects/m.txt", "user = { my_effect = yes }\n")
     write(m1 / "_archive/common/scripted_effects/old.txt", "old = { set_variable = { name = my_var } }\n")
     (home / "vic3tools.toml").write_text(f"[roots]\ngame = '{van.parent.as_posix()}'\n", encoding="utf-8")
@@ -35,6 +37,15 @@ def test_defs_with_ranges(setidx):
     assert [(h.kind, h.line, h.end_line) for h in setidx.defs("my_panel")] == [("gui_type", 2, 8)]
     assert setidx.defs("my_tpl")[0].kind == "gui_template"
     assert {h.folder for h in setidx.defs("LAW_GIVES")} == {"english", "russian"}
+
+
+def test_engine_folders(setidx):
+    assert [(m.name, m.kind) for m in setidx.mods[:3]] == [("clausewitz", "engine"), ("jomini", "engine"),
+                                                          ("vanilla", "vanilla")]
+    assert setidx.ms.mods[0].kind == "vanilla"  # the set itself is unchanged
+    (h,) = setidx.defs("CW_KEY")
+    assert (h.mod.name, h.folder) == ("clausewitz", "english")  # the language from the file name
+    assert [(h.mod.name, h.kind) for h in setidx.defs("engine_panel")] == [("jomini", "gui_type")]
 
 
 def test_refs_ctx_path_writes_and_loads(setidx):

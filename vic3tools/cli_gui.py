@@ -129,7 +129,7 @@ def _target(spec: str, si: query.SetIndex | None) -> tuple[Path, int | None]:
     p = Path(file)
     if not p.is_file() and si is not None:
         rel = file.replace("\\", "/").lstrip("/")
-        for m in reversed(si.ms.mods):
+        for m in reversed(si.mods):
             if (m.path / rel).is_file():
                 p = m.path / rel
                 break

@@ -27,6 +27,7 @@ from vic3tools.core.vfs import Mod
 
 VERSION = 4
 TEXT_LANGS = ("english", "russian")
+_LANG = re.compile(r"_l_([a-z_]+)\.yml$", re.I)
 REF_LANGS = ("english",)
 _ID = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[0-9]+)?")
 _LOC_REF = re.compile(r"\$([A-Za-z0-9_.]+)\$|\[([^\]]*)\]")
@@ -149,7 +150,8 @@ class Writer:
 
     def _loc(self, file_id: int, full: Path, rel: str) -> None:
         parts = rel.split("/")
-        lang = parts[1] if len(parts) > 2 else ""
+        m = _LANG.search(parts[-1])  # the file name says the language (the engine's files are not in a language folder)
+        lang = m[1] if m else parts[1] if len(parts) > 2 else ""
         defs, texts, refs = [], [], []
         for e in loc.read_file(full):
             nid = self.nid(e.key)
