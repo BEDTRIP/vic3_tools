@@ -12,7 +12,8 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "pillow>=10"]
+img = ["pillow>=10"]
 
 [project.scripts]
 v3 = "vic3tools.cli:main"

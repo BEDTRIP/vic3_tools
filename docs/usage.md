@@ -42,6 +42,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
 | `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
 | `v3 lint [MOD]` | check a mod (default: the last of the set): vic3-tiger with the mods before it loaded as dependencies, plus our rules; known reports left out (baseline, suppressions); by file and line. `--file F` — one file, `--no-tiger` — our rules only (about a second), `--key`, `--severity`, `--all`, `--baseline` — accept every current report as known |
+| `v3 bench start / do / shot / diff / stop` | the test bench: the game open in the sandbox VM; `shot NAME --crop x0,y0,x1,y1` sends the mod files changed since (the game in debug mode re-reads them) and takes a screenshot; `diff A B` — what changed; `do "<vic3_ui steps>"` — clicks, hovers, console |
 | `v3 def <name>…` | where a name is defined — records (with their line range), GUI types and templates, loc keys — and which definition wins |
 | `v3 refs <name>` | where a name is used: `file:line`, the record it sits in, the keys above it (`set_variable>name`), whether it writes; files the game never reads (`_archive/`, replaced by path) listed apart; a glob (`prefix_*`) sums up every matching name |
 | `v3 loc <KEY>` | the text of a loc key in English and Russian, every definition and which one shows; `v3 loc --text "…"` — the key behind a text as the player sees it (placeholders filled) |
@@ -205,6 +206,32 @@ message = "debug output left in"
 
 The plugin's hook after an edit runs the rules that need only that file (not tiger) and tells the agent about new
 reports in the same turn.
+
+### Test bench: `v3 bench`
+
+The loop "edit a `.gui` → see it" without a run, in the sandbox VM (`bridge/vm`, see the plan's "Runs sandbox"):
+
+```
+v3 bench start                          # the playset's mods, a new game as SWI (or --save NAME), left paused
+v3 bench shot before --crop 0,0.1,0.5,0.6
+# … edit the .gui …
+v3 bench shot after --crop 0,0.1,0.5,0.6   # the changed files go to the VM first; the game re-reads them
+v3 bench diff before after              # "changed 3.06% of the pixels, in the area …" + a side-by-side image
+v3 bench stop
+```
+
+Each step takes ~30 s (PowerShell Direct, a task in the guest's session). Shots and steps are in `<cache>/bench/`.
+The game's run scripts (`run_vic3_sandbox.ps1`, `vic3_ui.ps1`) are the project's: `[bench] scripts = '<folder>'` in
+`vic3tools.toml`; `[bench] vm` names another VM. Cutting and comparing need Pillow: `pip install vic3tools[img]`.
+A free-standing top-level widget of a mod is not drawn on screen: to show a probe window, put it into `ingame_hud`
+(a copy of `gui/ingame_hud.gui` with the widget as its last child).
+
+### From a cloud session: the bridge
+
+A cloud session has no game files; the PC bridge (`vic3_mods/tools/pc_bridge`, an MCP server over a tunnel) has a
+tool `v3(args)` that runs a `v3` command on the PC and returns its output (`vic3tools/bridge.py`). Read-only commands
+and the bench only: `gui set` only with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud
+edits its own clone and pushes. Shots of the bench are read with the bridge's `get_image('bench/<step>/<name>.png')`.
 
 ### Glossary
 

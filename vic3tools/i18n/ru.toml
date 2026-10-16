@@ -95,3 +95,8 @@ lint_head = "{mod}: tiger {tiger}, правила v3 {own}; в базе изве
 lint_more = "… показано {shown} из {total}; сузить — --file, --key, --severity или --limit"
 lint_clean = "ничего не найдено"
 hook_lint_head = "v3 lint после правки {file} (известные отчёты не показаны):"
+
+bench_step = "шаг {id}: код {code}; файлы в {out}"
+bench_no_shot = "нет снимка {name} (путь или имя из `v3 bench shot`)"
+bench_same = "{a} и {b}: разницы нет"
+bench_diff = "изменилось {share} пикселей, в области {box} (x0,y0,x1,y1)"

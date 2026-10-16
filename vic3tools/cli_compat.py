@@ -20,11 +20,12 @@ def add_parsers(sub) -> None:
     common.add_argument("--rebuild", action="store_true", help="re-read every file, ignoring the index cache")
     common.add_argument("--json", action="store_true")
 
-    from vic3tools import cli_gui, cli_index, cli_lint
+    from vic3tools import cli_bench, cli_gui, cli_index, cli_lint
 
     cli_index.add_parsers(sub, common)
     cli_gui.add_parsers(sub, common)
     cli_lint.add_parsers(sub, common)
+    cli_bench.add_parsers(sub, common)
 
     p = sub.add_parser("playsets", help="the launcher's playsets (* — active)")
     p.add_argument("--json", action="store_true")

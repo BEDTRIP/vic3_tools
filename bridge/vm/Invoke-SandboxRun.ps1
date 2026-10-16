@@ -20,6 +20,10 @@ The host keeps the repos, the mods and the tools; the guest only has Windows, St
 
 The exit code is the run script's.
 
+A test bench: a run with "KeepOpen": true leaves the game paused; then -WithGame -Script vic3_ui.ps1
+-ParamsJson '{"Do": "wait 3; shot after"}' sends the mod files changed since (the game in debug mode re-reads
+them), takes the steps in the guest's session and brings the screenshots back; "Do": "close" ends it.
+
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File bridge\vm\Invoke-SandboxRun.ps1 -ScriptDir ..\vic3_mods\tools `
     -Script run_vic3_sandbox.ps1 -OutDir C:\runs\r1 -ParamsJson C:\runs\r1.json   # {"RunMinutes": 5, "NewGame": true}
@@ -35,6 +39,8 @@ param(
     [string]$ContentLoad = "",
     [string]$StartSave = "",
     [switch]$FetchSaves,
+    # a step on a game left open (run_vic3_sandbox.ps1 -KeepOpen): -Script vic3_ui.ps1; changed mod files still travel
+    [switch]$WithGame,
     [string]$Name = "vic3-sandbox",
     [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA "vic3tools\vm-cred.xml"),
     [int]$TimeoutMinutes = 180
@@ -82,7 +88,8 @@ try {
     }
     if (-not $ready.active) { throw "the guest's session is not on the console (query user: not Active)" }
     if (-not $ready.desktop) { throw "no desktop session in the guest (autologon: Initialize-SandboxGuest.ps1)" }
-    if ($ready.game) { throw "Victoria 3 is already running in the guest" }
+    if ($ready.game -and -not $WithGame) { throw "Victoria 3 is already running in the guest" }
+    if ($WithGame -and -not $ready.game) { throw "no game open in the guest (start one with -KeepOpen)" }
     $GuestDocs = $ready.docs
 
     # 2. scripts

@@ -95,3 +95,8 @@ lint_head = "{mod}: tiger {tiger}, v3 rules {own}; in the baseline {baselined}, 
 lint_more = "… showing {shown} of {total}; --file, --key, --severity or --limit"
 lint_clean = "nothing found"
 hook_lint_head = "v3 lint after the edit of {file} (known reports left out):"
+
+bench_step = "step {id}: exit {code}; files in {out}"
+bench_no_shot = "no shot {name} (a path or a name of `v3 bench shot`)"
+bench_same = "{a} and {b}: no difference"
+bench_diff = "changed {share} of the pixels, in the area {box} (x0,y0,x1,y1)"

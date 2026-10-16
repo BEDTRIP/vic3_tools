@@ -24,6 +24,7 @@ user in their language.
 | change a widget's property, or give the exact edit with its lines (no hand editing or line counting in a big `.gui`) | `v3 gui set FILE:LINE KEY=VALUE … --dry`, then without `--dry` |
 | does a label fit its width in all 11 languages | `v3 gui fit FILE:LINE` (`--width N` to try a width) |
 | check a mod or one file after changes: tiger + our rules, known reports left out | `v3 lint` (`--file F`, `--no-tiger` for a quick pass, `--key missing-item`) |
+| see a GUI change in the game without a run (the VM bench) | `v3 bench start`, then `v3 bench shot NAME --crop …` after each edit, `v3 bench diff A B`, `v3 bench stop` |
 
 How to work:
 
@@ -36,5 +37,5 @@ How to work:
 - **Big file:** never read a `.gui` or long `.txt` whole. `v3 outline` gives the tree with line ranges; GUI widgets are
   named by their `name`, else their `text`.
 - The set is the active playset; another one: `--playset NAME`, `--mods DIR…`, `--set FILE`. `--json` for exact data.
-- `v3` needs the game files on this machine; in a cloud session without them it reports the game as not found — then
-  fall back to grep.
+- `v3` needs the game files on this machine. In a cloud session: the PC bridge's tool `v3(args)` runs the same
+  commands on the PC (read-only; `bench` too); without the bridge — fall back to grep.
