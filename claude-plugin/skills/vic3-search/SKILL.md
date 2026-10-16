@@ -28,8 +28,9 @@ user in their language.
 
 How to work:
 
-- **Start with `v3`, not grep.** Use grep only for what `v3` does not cover: comments, documents, files outside the
-  game's folders, free text.
+- **`v3` knows what grep does not:** which definition the game takes, the record a use sits in, files the game never
+  reads. grep is the tool for comments, documents, files outside the game's folders, free text. Pick what gets the
+  answer right.
 - **Follow a chain with `refs`:** each reference shows the record it sits in (`in <record>`); run `v3 refs <record>`
   on that to go one level up, until an on_action, an event or a GUI is reached.
 - **"Nobody writes it"** — `v3 refs` counts writes only in files the game loads; writes in `_archive/` or in a file
