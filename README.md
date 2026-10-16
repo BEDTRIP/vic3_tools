@@ -32,7 +32,7 @@ Every command has `--help`; short output by default, `--json` for exact data. Ho
 
 ## Install
 
-Windows with Victoria 3 from Steam; Python 3.11 or newer.
+Windows with Victoria 3 from Steam; Python 3.11 or newer. The package is not on PyPI — install it from GitHub:
 
 ```
 pip install "vic3tools[img] @ git+https://github.com/BEDTRIP/vic3_tools"
@@ -40,11 +40,18 @@ v3 setup
 v3 doctor
 ```
 
-or from a checkout: `git clone https://github.com/BEDTRIP/vic3_tools` and `pip install -e "vic3_tools[img]"`.
+or from a checkout: `git clone https://github.com/BEDTRIP/vic3_tools` and `pip install -e "vic3_tools[img]"`. The
+`[img]` extra is Pillow, needed only for screenshots of the bench and the sandbox (cropping, comparing); without it
+everything else works.
 
 - `v3 setup` finds the game, the Workshop and the documents folder (Steam's `libraryfolders.vdf`, the Windows
   Documents folder), writes the user config `%LOCALAPPDATA%\vic3tools\vic3tools.toml` (only to correct what was found)
-  and builds the glossary and the index of the active launcher playset. `v3 doctor` says what is ready and what is not.
+  and builds the glossary and the index of the active launcher playset. `v3 doctor` says what is ready and what is not;
+  it exits with 1 while something is missing (in a cloud session, with no game, that is expected).
+- **First commands** to see it work: `v3 mods` (the active playset in load order), `v3 def <a scripted effect or
+  building of your mod>` (where it is defined and which definition wins), `v3 refs <the same name>` (who uses it).
+- **Language of the output:** English by default; Russian with `v3 --lang ru <command>`, the environment variable `V3_LANG=ru`,
+  or `lang = "ru"` in the user config (a Russian Windows gets it from the system locale).
 - **vic3-tiger** (for `v3 lint`): put `vic3-tiger.exe` from [its releases](https://github.com/amtep/tiger/releases) into
   `%LOCALAPPDATA%\vic3tools\bin`.
 - **Claude Code plugin:** in Claude Code
@@ -58,10 +65,15 @@ or from a checkout: `git clone https://github.com/BEDTRIP/vic3_tools` and `pip i
 Optional:
 
 - **Sandbox VM** for test runs off your screen (Hyper-V with a GPU partition): [`bridge/vm/README.md`](bridge/vm/README.md).
-- **PC bridge** for cloud sessions: `bridge/pc/start.ps1 -Config <project>\bridge.toml [-Vm]` (an ngrok domain; the
-  token is made on the first start) — [`docs/usage.md`](docs/usage.md), «From a cloud session: the bridge».
+- **PC bridge** for cloud sessions: `bridge/pc/start.ps1 -Config <project>\bridge.toml [-Vm]`. It needs
+  [ngrok](https://ngrok.com) with an account and its free static domain (`domain` in `[bridge]` of `bridge.toml`);
+  the token is made on the first start (`<home>\token.txt`) and goes into the cloud environment's variable
+  `PC_BRIDGE_TOKEN` — [`docs/usage.md`](docs/usage.md), «From a cloud session: the bridge».
 - **SteamCMD** for Workshop uploads: unpack [steamcmd.zip](https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip)
   into `C:\steamcmd` and sign in once (`steamcmd +login <user>`); `v3 release build` prints the upload command.
+
+**Without the game** (a cloud session, Linux) the commands that read only a mod's own files work: `outline`,
+`release check / build`, `docs`, the tests; everything that needs the game's files runs on the PC through the bridge.
 
 Updating: `pip install -U …` (or `git pull` in a checkout); the cache follows the game's version and the playset by
 itself, and `/plugin update` refreshes the plugin.

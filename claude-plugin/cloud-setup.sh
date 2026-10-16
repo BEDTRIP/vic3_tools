@@ -20,8 +20,9 @@ for d in "${VIC3TOOLS_SRC:-}" /home/user/vic3_tools "$HOME/vic3_tools" "$PWD/../
 done
 
 # 1. the `v3` command: the plugin's hooks call it; vic3_mods' tools import the package
-if [ -n "$SRC" ]; then PKG="$SRC"; else PKG="git+https://github.com/BEDTRIP/vic3_tools@main"; fi
-python3 -m pip install --quiet --disable-pip-version-check --break-system-packages "$PKG" 2>&1 \
+# a local checkout goes in editable: a plain install would leave a build/ folder in the clone
+if [ -n "$SRC" ]; then PKG="$SRC"; EDIT="-e"; else PKG="git+https://github.com/BEDTRIP/vic3_tools@main"; EDIT=""; fi
+python3 -m pip install --quiet --disable-pip-version-check --break-system-packages $EDIT "$PKG" 2>&1 \
   | grep -v "Running pip as the 'root' user" || true
 command -v v3 >/dev/null && say "v3 installed ($PKG)" || say "v3 NOT installed - the plugin's hooks will fail quietly"
 
