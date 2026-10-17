@@ -302,6 +302,12 @@ mod folder), `start_run` / `run_status` / `stop_run` (the game scripts with the 
 with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud edits its own clone and pushes. Shots
 of the bench are read with `get_image('bench/<step>/<name>.png')`.
 
+**Graphics in ComfyUI** (`comfy/`, see `comfy/README.md`): `comfy/v3_nodes` — ComfyUI nodes for game graphics
+(a .dds from the game, a DLC skin, the mod or the Workshop by its path; seamless pieces; mirror and spriteborder put
+together as the game does; layers with the game's blend modes; captions in the game's fonts; a labelled sheet), linked
+into ComfyUI's `custom_nodes`; `comfy/workflows.py save|run` — the ld_00…ld_50 workflows built from one description
+and saved to ComfyUI's Workflows list, the generator model swapped by `--model`, or queued through the API.
+
 The Claude Code plugin (skills and hooks) is installed in a cloud session by the environment's setup script
 (`claude-plugin/cloud-setup.sh`; a repo's `.claude/settings.json` cannot enable plugins in the cloud) — see
 `claude-plugin/README.md`, «Cloud sessions».

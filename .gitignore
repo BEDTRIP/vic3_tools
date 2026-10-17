@@ -6,3 +6,4 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+comfy/v3_nodes/v3_nodes.json
