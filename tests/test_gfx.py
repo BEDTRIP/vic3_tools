@@ -59,3 +59,9 @@ def test_tint_keeps_alpha_and_ramps():
     assert dark[:3] == cards._rgb(cards.TINTS["bronze"][0]) and light[:3] == cards._rgb(cards.TINTS["bronze"][2])
     assert (dark[3], mid[3], light[3]) == (255, 100, 0)
     assert sum(dark[:3]) < sum(mid[:3]) < sum(light[:3])
+
+
+def test_fit_opaque_covers():
+    img = Image.new("RGBA", (1536, 1088), (200, 100, 50, 255))
+    out = cards.fit(img, (1536, 1024), opaque=True)
+    assert out.size == (1536, 1024) and out.getextrema()[3] == (255, 255)

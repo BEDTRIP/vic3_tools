@@ -49,6 +49,8 @@ param(
     # steps gets scale 1 unless -GuiScale is given (the steps' points are measured at 1)
     [string]$GuiScale = "",
     [string]$Language = "",
+    # the guest's interface theme (selected_ui_skin_theme: gui_skin_base, gui_skin_ip4 ...) instead of the host's
+    [string]$Theme = "",
     [string]$Name = "vic3-sandbox",
     [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA "vic3tools\vm-cred.xml"),
     [int]$TimeoutMinutes = 180
@@ -194,6 +196,7 @@ try {
     if (-not $GuiScale -and ($Script -eq "vic3_ui.ps1" -or $pj.Shots -or $pj.Countries -or "$($pj.Commands)" -match 'ui:')) { $GuiScale = "1" }
     if ($GuiScale) { $settings = $settings -replace '("GUI":\s*\{[^}]*?"scale":\s*")[^"]*"', "`${1}$GuiScale`"" }
     if ($Language) { $settings = $settings -replace '("language":\s*")[^"]*"', "`${1}$Language`"" }
+    if ($Theme) { $settings = $settings -replace '("selected_ui_skin_theme":\s*")[^"]*"', "`${1}$Theme`""; Say "settings: theme $Theme" }
     if ($GuiScale -or $Language) { Say "settings: scale $(if ($GuiScale) { $GuiScale } else { 'as host' }), language $(if ($Language) { $Language } else { 'as host' })" }
     Invoke-Command -Session $session -ScriptBlock { param($p, $j) [IO.File]::WriteAllText($p, $j, (New-Object Text.UTF8Encoding $false)) } `
         -ArgumentList (Join-Path $GuestDocs "pdx_settings.json"), $settings

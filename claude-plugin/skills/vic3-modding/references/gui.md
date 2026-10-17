@@ -40,7 +40,9 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
   relative path replaces the vanilla one while the theme is on. DLC skins: `votp` (dlc004), `ap1` (dlc007), `ip2`
   (dlc011), `ip3` (dlc014), `ip4` (dlc016), `ep2` (dlc018); each replaces every header layer (`top_header_*`,
   `fullscreen_header_*`, `header_color`, `header_borders`, `header_bg_dec`, `big_header_pattern`). A mod's own texture
-  is not themed: a themed variant goes to `gfx/skins/<name>/…` of the mod (picked up from a mod — not checked yet).
+  is not themed: a themed variant goes to `gfx/skins/<name>/…` of the mod — picked up from a mod (bench 2026-10-17,
+  theme ip4: the mod's `gfx/skins/ip4/backgrounds/top_header_dec.dds` replaced the header layer of every side panel,
+  vanilla's and the mod's; `v3 bench start --theme ip4` sets the guest's theme).
   Vanilla UI textures are uncompressed RGBA with mipmaps (1140×212 → 1 288 512 bytes).
 - **Event pictures are videos (2026-10-17).** `event_image = { video = "<name>" }` plays `gfx/event_pictures/<name>.bk2`
   (Bink 2, 1700×1200, ~300 frames; DLC ones in `dlc/<dlc>/gfx/event_pictures/`); the 13 `.dds` there are character

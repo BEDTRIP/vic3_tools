@@ -129,7 +129,9 @@ def find_cards(mod: Path) -> list[Path]:
 # -- from the source PNG to what goes into the DDS ------------------------------------------------------------------
 
 def fit(img, size, opaque: bool = False):
-    """Into `size` keeping the aspect (lanczos; vanilla icons fill their square), centred on transparency."""
+    """Into `size` keeping the aspect (lanczos): an icon trimmed, padded a little and centred on transparency (vanilla
+    icons fill their square); an opaque picture (event, illustration, building icon) covers
+    the frame, the middle kept."""
     from PIL import Image
 
     img = img.convert("RGBA")
@@ -142,6 +144,11 @@ def fit(img, size, opaque: bool = False):
         canvas = Image.new("RGBA", (img.width + 2 * pad, img.height + 2 * pad), (0, 0, 0, 0))
         canvas.paste(img, (pad, pad))
         img = canvas
+    if opaque:  # a picture fills its frame: cover and crop the middle
+        scale = max(w / img.width, h / img.height)
+        img = img.resize((max(w, round(img.width * scale)), max(h, round(img.height * scale))), Image.LANCZOS)
+        x, y = (img.width - w) // 2, (img.height - h) // 2
+        return img.crop((x, y, x + w, y + h))
     scale = min(w / img.width, h / img.height)
     img = img.resize((max(1, round(img.width * scale)), max(1, round(img.height * scale))), Image.LANCZOS)
     out = Image.new("RGBA", (w, h), (0, 0, 0, 0))

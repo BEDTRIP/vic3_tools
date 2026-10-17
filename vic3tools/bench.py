@@ -54,7 +54,8 @@ def scripts_dir(cfg: paths.Config) -> Path:
 
 
 def _run(cfg: paths.Config, script: str, params: dict, content_load: Path | None = None, with_game: bool = False,
-         start_save: str = "", name: str = "", timeout: int = 1800, scale: str = "", language: str = "") -> Step:
+         start_save: str = "", name: str = "", timeout: int = 1800, scale: str = "", language: str = "",
+         theme: str = "") -> Step:
     sid = datetime.datetime.now().strftime("b%m%d_%H%M%S") + (f"_{name}" if name else "")
     out = bench_dir() / sid
     out.mkdir(parents=True, exist_ok=True)
@@ -79,6 +80,8 @@ def _run(cfg: paths.Config, script: str, params: dict, content_load: Path | None
         cmd += ["-GuiScale", scale]
     if language:
         cmd += ["-Language", language if language.startswith("l_") else f"l_{language}"]
+    if theme:
+        cmd += ["-Theme", theme if theme.startswith("gui_skin_") else f"gui_skin_{theme}"]
     p = subprocess.run(cmd, capture_output=True, timeout=timeout)
     text = (p.stdout + p.stderr).decode("utf-8", "replace")
     (out / "bench.log").write_text(text, encoding="utf-8")
@@ -94,14 +97,16 @@ def content_load_for(mods: list[Path]) -> Path:
 
 
 def start(cfg: paths.Config, mods: list[Path] | None = None, save: str = "", tag: str = "SWI",
-          load_wait: int = 400, scale: str = "", language: str = "") -> Step:
+          load_wait: int = 400, scale: str = "", language: str = "", theme: str = "") -> Step:
     """Open the game in the VM and leave it paused: a new game as ``tag``, or the host's save ``save``; ``scale`` and
-    ``language`` set the guest's interface scale and language instead of the host's."""
+    ``language`` set the guest's interface scale and language instead of the host's, ``theme`` its interface theme
+    (a DLC skin: base, votp, ap1, ip2, ip3, ip4, ep2)."""
     params = {"RunMinutes": 0, "AiTag": "", "KeepOpen": True, "Tag": tag, "LoadWaitSec": load_wait}
     if not save:
         params["NewGame"] = True
     cl = content_load_for(mods) if mods else None
-    return _run(cfg, "run_vic3_sandbox.ps1", params, cl, start_save=save, name="start", scale=scale, language=language)
+    return _run(cfg, "run_vic3_sandbox.ps1", params, cl, start_save=save, name="start", scale=scale, language=language,
+                theme=theme)
 
 
 def step(cfg: paths.Config, do: str, name: str = "") -> Step:
