@@ -550,6 +550,16 @@ def get_image(path: str, crop: list[float] | None = None, max_width: int = 1600)
 
 
 @mcp.tool()
+def get_file(path: str) -> dict:
+    """A file as it is (base64, up to 30 MB) -- a generated PNG to convert to DDS in the cloud, a texture to edit."""
+    import base64
+    f = resolve(path)
+    if f.stat().st_size > 30 << 20:
+        raise ValueError(f"{f.stat().st_size} bytes: over 30 MB")
+    return {"name": f.name, "size": f.stat().st_size, "base64": base64.b64encode(f.read_bytes()).decode()}
+
+
+@mcp.tool()
 def py_tool(name: str, args: list[str]) -> str:
     """Run a project tool on the PC's files (saves are 450 MB, too big to fetch): tools/<name>.py of the config's
     tool repos in order (each repo's bridge worktree if made, else its checkout), run from that repo's folder. Allowed:
@@ -718,7 +728,8 @@ def comfy_fetch(url: str, folder: str, name: str = "") -> str:
 @mcp.tool()
 def comfy(workflow: dict, inputs: list[str] | None = None, wait: int = 45) -> dict:
     """Run a ComfyUI workflow (API format: {"<node id>": {"class_type": ..., "inputs": {...}}}).
-    inputs: images to upload first ('wt/...', 'game/...', 'gen/...', any root; DDS goes as PNG); the strings "$in0",
+    inputs: images to upload first ('wt/...', 'game/...', 'gen/...', any root, or "data:<name>;base64,<data>" made
+    in the cloud; DDS goes as PNG); the strings "$in0",
     "$in1"... in the workflow become their uploaded names (for LoadImage). Shuts the sandbox VM down first (they share
     the GPU). Waits up to `wait` s (the client gives a call 60 s): unfinished -> comfy_result(id) later.
     Output images: gen/<prompt id>/ -- read them with get_image."""
@@ -726,11 +737,17 @@ def comfy(workflow: dict, inputs: list[str] | None = None, wait: int = 45) -> di
     note = _free_gpu()
     text = json.dumps(workflow)
     for i, src in enumerate(inputs or []):
-        f = resolve(src)
-        name, data = f.name, f.read_bytes()
+        if src.startswith("data:"):          # an image made in the cloud: data:<name>;base64,<data>
+            import base64
+            head, _, b64 = src.partition(",")
+            name, data = Path(head[5:].split(";")[0]).name or f"in{i}.png", base64.b64decode(b64)
+            f = Path(name)
+        else:
+            f = resolve(src)
+            name, data = f.name, f.read_bytes()
         if f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
             buf = io.BytesIO()
-            PImage.open(f).save(buf, "PNG")
+            PImage.open(io.BytesIO(data)).save(buf, "PNG")
             name, data = f.stem + ".png", buf.getvalue()
         boundary = uuid.uuid4().hex
         body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{name}\"\r\n"
