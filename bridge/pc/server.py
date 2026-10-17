@@ -35,7 +35,8 @@ The project is described by a TOML file (``--config``, ``PC_BRIDGE_CONFIG``)::
 
 Every request must carry "Authorization: Bearer <token>" (``<home>/token.txt``, made on the first start). Run it in
 the user's desktop session, not as a service: the game scripts need the screen. ``PC_BRIDGE_TARGET=vm`` (start.ps1
--Vm): runs go to the Hyper-V sandbox VM (bridge/vm/Invoke-SandboxRun.ps1) and the screen stays free.
+-Vm): runs go to the Hyper-V sandbox VM (bridge/vm/Invoke-SandboxRun.ps1) and the screen stays free; ``start_run(target=
+"vm" | "pc")`` picks it per run (the VM's screen is the 2560x1440 the game scripts' points are measured on).
 """
 import collections
 import datetime
@@ -116,6 +117,7 @@ if not TOKEN_FILE.exists():
 TOKEN = TOKEN_FILE.read_text(encoding="utf-8").strip()
 
 _runs = {}            # run id -> Popen of this server's lifetime
+_targets = {}         # run id -> True if it runs in the sandbox VM
 _lock = threading.Lock()
 
 
@@ -153,8 +155,9 @@ def in_vm(script, timeout=120):
     return ps(f"Invoke-Command -VMName '{VM_NAME}' -Credential {cred} -ScriptBlock {{ {script} }}", timeout)
 
 
-def game_running():
-    if VM:
+def game_running(vm: bool | None = None):
+    """The game is up -- in the sandbox VM (vm=True), on the PC (False); None: where runs go by default."""
+    if VM if vm is None else vm:
         return in_vm("[bool](Get-Process victoria3 -ErrorAction SilentlyContinue)").strip() == "True"
     out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq victoria3.exe", "/NH"], capture_output=True,
                          text=True, errors="replace", creationflags=NO_WINDOW).stdout
@@ -266,8 +269,8 @@ def _sync(src, dst):
 
 
 def _sync_to_live(src: Path, live_name: str) -> dict:
-    if not VM and game_running():
-        raise RuntimeError("the game is running: the live copy is not synced during a run")
+    if game_running(vm=False):
+        raise RuntimeError("the game is running on the PC: the live copy is not synced during its run")
     dst = (DOCS / "mod" / live_name).resolve()
     if dst.parent != (DOCS / "mod").resolve() or not dst.is_dir():
         raise ValueError(f"no such live mod: {live_name}")
@@ -349,18 +352,23 @@ def pull_repos() -> str:
 @mcp.tool()
 def start_run(run_minutes: int = 10, new_game: bool = False, tag: str = "", start_save: str = "",
               autosaves: int = 0, ai_tag: str = "all", commands: str = "", shots: bool = False,
-              countries: str = "", load_wait_sec: int = 400, playset: str = "") -> dict:
+              countries: str = "", load_wait_sec: int = 400, playset: str = "", target: str = "") -> dict:
     """Start a game run in the background: vic3_tools' bridge/game/run_vic3_sandbox.ps1 with the project's hooks
-    (parameters as in the skill vic3-sandbox; playset -- the launcher playset's mods for this run). Returns the run
-    id at once; poll run_status(id). Output: runs/<id>/."""
-    if active_run() or game_running():
+    (parameters as in the skill vic3-sandbox; playset -- the launcher playset's mods for this run). target: "vm" --
+    the sandbox VM (its own fixed 2560x1440 screen the scripts' points are measured on; the PC stays free -- the
+    default choice), "pc" -- the user's screen (whatever its size), "" -- the bridge's default (PC_BRIDGE_TARGET).
+    Returns the run id at once; poll run_status(id). Output: runs/<id>/."""
+    if target not in ("", "vm", "pc"):
+        raise ValueError("target: vm | pc")
+    use_vm = VM if not target else target == "vm"
+    if active_run() or game_running(use_vm):
         raise RuntimeError("a run or the game is already going")
     rid = datetime.datetime.now().strftime("r%m%d_%H%M%S")
     out = RUNS / rid
     out.mkdir()
     hooks = _hooks_dir()
     env = dict(os.environ)
-    if VM:
+    if use_vm:
         params = {"RunMinutes": int(run_minutes), "LoadWaitSec": int(load_wait_sec), "Autosaves": int(autosaves),
                   "AiTag": ai_tag, "NewGame": bool(new_game), "Shots": bool(shots)}
         params.update({k: v for k, v in (("Tag", tag), ("Commands", commands), ("Countries", countries)) if v})
@@ -401,9 +409,10 @@ def start_run(run_minutes: int = 10, new_game: bool = False, tag: str = "", star
 
     with _lock:
         _runs[rid] = p
+        _targets[rid] = use_vm
     threading.Thread(target=wait, daemon=True).start()
-    log(f"run {rid} started: {args[5:]}")
-    return {"id": rid, "out": f"runs/{rid}"}
+    log(f"run {rid} started{' in the VM' if use_vm else ' on the PC'}: {args[5:]}")
+    return {"id": rid, "out": f"runs/{rid}", "target": "vm" if use_vm else "pc"}
 
 
 def tail(path, n):
@@ -422,7 +431,7 @@ def run_status(run_id: str, tail_lines: int = 30) -> dict:
     state = ("running" if p and p.poll() is None else
              f"finished, exit {exit_file.read_text().strip()}" if exit_file.exists() else
              "unknown (the bridge was restarted during the run)")
-    res = {"state": state, "game_running": game_running(),
+    res = {"state": state, "game_running": game_running(_targets.get(run_id)),
            "stdout": tail(out / "stdout.txt", tail_lines) if (out / "stdout.txt").exists() else ""}
     if state != "running" and (out / "run.log").exists():
         res["run_log"] = tail(out / "run.log", tail_lines)
@@ -438,13 +447,14 @@ def stop_run(run_id: str = "") -> str:
         p = _runs.get(run_id) if run_id else None
     if p and p.poll() is None:
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=NO_WINDOW)
-    if VM:
+    vm = _targets.get(run_id, VM)
+    if vm:
         in_vm('Stop-ScheduledTask "vic3_run" -ErrorAction SilentlyContinue; '
               'Get-Process victoria3 -ErrorAction SilentlyContinue | Stop-Process -Force')
     else:
         subprocess.run(["taskkill", "/F", "/IM", "victoria3.exe"], capture_output=True, creationflags=NO_WINDOW)
     log(f"stop {run_id}")
-    return f"game running: {game_running()}"
+    return f"game running: {game_running(vm)}"
 
 
 @mcp.tool()

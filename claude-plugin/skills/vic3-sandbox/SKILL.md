@@ -19,7 +19,9 @@ the user's language.
 - **On the PC** — the game takes the screen, mouse and keyboard: warn the user first; a script that sends keys must
   check the game window is in front before every key (keys typed into the user's chat happened).
 - **From a cloud session** — through the PC bridge (`vic3-pc` MCP, `bridge/pc/server.py` with the project's
-  `bridge.toml`): `v3(["bench", …])`, `start_run`, `run_status`, `get_image`, `read_text`, `grep`. The plugin
+  `bridge.toml`): `v3(["bench", …])`, `start_run`, `run_status`, `get_image`, `read_text`, `grep`. **Every run goes to
+  the VM: `start_run(..., target="vm")`** — the bridge's own default is wherever it was started (`start.ps1 -Vm` or
+  not), so pass it each time; `target="pc"` only when the user asks for their screen. The plugin
   itself (these skills) reaches a cloud session only through the environment's setup script, not through the repo's
   `.claude/settings.json` — see `claude-plugin/README.md`, «Cloud sessions».
 
@@ -47,6 +49,14 @@ a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shot
 
 ## Rules
 
+- **The screen is part of the run.** The game scripts click and read the screen at points measured on a 2560×1440
+  window (moved by the interface scale). The VM's screen is fixed at 2560×1440 (`Initialize-SandboxGuest.ps1`); the
+  user's PC screen is whatever the user has now (1920×1080 on 17.10.2026). On another size the run breaks in ways that
+  look like the game: the lobby's "Random country" misses ("screen 'game' not seen in 300 s", the lobby with no country
+  chosen on `01_loaded.png`), "console: did not open — 'tag …' not sent", «Конец игры» not seen ("date stands" on the
+  game-over screen), the profiler's view shots empty. Then move the run to the VM — do not patch points in a project's
+  hooks for the PC's screen (17.10 a night lost three runs and an hour to it). The size of a shot: `get_image(path,
+  crop=[0, 0.96, 0.05, 1], max_width=4000)` comes back 96 px wide at 1920, 128 at 2560.
 - **Never `Restart-VM -Force`** — a hard reset; registry edits were lost and the VM sat at the password screen. Reboot
   from inside (`Restart-Computer -Force` through `Invoke-Command`).
 - A guest session left **"Disc"** (a VMConnect window opened and closed) has no screen — screenshots fail with "The
