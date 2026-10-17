@@ -84,11 +84,14 @@ Optional:
 
 - **Sandbox VM** for test runs off your screen (Hyper-V with a GPU partition): [`bridge/vm/README.md`](bridge/vm/README.md).
 - **PC bridge**, so a cloud session (claude.ai/code) uses `v3` and runs the game on your PC:
-  1. [ngrok](https://ngrok.com): sign up, install it, `ngrok config add-authtoken <yours>`, and claim the free static
-     domain in its dashboard.
-  2. In your project, a `bridge.toml` with `[bridge] domain = "<that domain>"`, `port`, `home` (a folder outside git
-     for the token, runs and logs) and the repos the cloud may check out (`[repos.*]`); `docs/usage.md`, «From a cloud
-     session: the bridge», has the fields.
+  1. A tunnel. [Tailscale Funnel](https://tailscale.com/kb/1223/funnel) (free, a fixed address, no monthly traffic
+     cap): install Tailscale, sign in, allow HTTPS certificates and Funnel for the tailnet (the first start prints the
+     link); the address is `<PC name>.<tailnet>.ts.net`. Or [ngrok](https://ngrok.com): sign up, install it,
+     `ngrok config add-authtoken <yours>`, claim the free static domain (the free plan's traffic runs out in a month
+     of screenshots).
+  2. In your project, a `bridge.toml` with `[bridge] tunnel = "tailscale"` (or `"ngrok"`), `domain = "<the address>"`,
+     `port`, `home` (a folder outside git for the token, runs and logs) and the repos the cloud may check out
+     (`[repos.*]`); `docs/usage.md`, «From a cloud session: the bridge», has the fields.
   3. `powershell -ExecutionPolicy Bypass -File bridge\pc\start.ps1 -Config <project>\bridge.toml` (`-Vm` — runs in the
      sandbox VM). The first start makes the venv and the token `<home>\token.txt`.
   4. In the project's `.mcp.json`: the server `https://<domain>/mcp` with the header

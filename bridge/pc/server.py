@@ -9,7 +9,8 @@ roots; nothing here writes outside the worktrees, the live mod folder, the runs 
 The project is described by a TOML file (``--config``, ``PC_BRIDGE_CONFIG``)::
 
     [bridge]
-    domain = "<the tunnel's domain>"      # start.ps1
+    tunnel = "tailscale"                  # start.ps1: "tailscale" (Funnel) or "ngrok" (default)
+    domain = "<the tunnel's domain>"      # ngrok: its static domain; tailscale: <PC>.<tailnet>.ts.net (checked)
     port = 8080
     home = "../_bridge"                   # token, worktrees, runs, the log, the venv (not in git)
     vm = "vic3-sandbox"

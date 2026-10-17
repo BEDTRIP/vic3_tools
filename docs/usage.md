@@ -293,7 +293,7 @@ A free-standing top-level widget of a mod is not drawn on screen: to show a prob
 A cloud session has no game files; the PC bridge (`bridge/pc/server.py`, an MCP server over a tunnel) does on the
 PC what needs the PC. A project describes itself in a `bridge.toml` (its repos and branches, the live mod, its hooks,
 its allowed Python tools, more readable folders; the format is at the top of `server.py`) and starts it with
-`bridge/pc/start.ps1 -Config <bridge.toml> [-Vm]` (ngrok, a venv, a token on first start). Tools: `checkout` /
+`bridge/pc/start.ps1 -Config <bridge.toml> [-Vm]` (the tunnel — Tailscale Funnel or ngrok, a venv, a token on first start). Tools: `checkout` /
 `checkout_fork` (a pushed branch into a worktree of the bridge), `sync_mod` / `sync_fork` / `install_mod` (the live
 mod folder), `start_run` / `run_status` / `stop_run` (the game scripts with the project's hooks, on the PC or with
 `-Vm` in the sandbox VM), `list_dir` / `read_text` / `grep` / `get_image`, `py_tool`, `pull_repos`, `wt_diff`, and

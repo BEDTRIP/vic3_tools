@@ -292,7 +292,7 @@ v3 bench stop
 В облаке нет файлов игры; мост ПК (`bridge/pc/server.py`, MCP-сервер через туннель) делает на ПК то, что требует
 ПК. Проект описывает себя в `bridge.toml` (репо и ветки, живой мод, хуки, разрешённые скрипты Python, дополнительные
 папки для чтения; формат — в начале `server.py`) и запускает мост `bridge/pc/start.ps1 -Config <bridge.toml> [-Vm]`
-(ngrok, venv, токен при первом запуске). Инструменты: `checkout` / `checkout_fork` (запушенная ветка в worktree
+(туннель — Tailscale Funnel или ngrok, venv, токен при первом запуске). Инструменты: `checkout` / `checkout_fork` (запушенная ветка в worktree
 моста), `sync_mod` / `sync_fork` / `install_mod` (папка живого мода), `start_run` / `run_status` / `stop_run` (скрипты
 игры с хуками проекта, на ПК или с `-Vm` в ВМ-песочнице), `list_dir` / `read_text` / `grep` / `get_image`,
 `py_tool`, `pull_repos`, `wt_diff` и `v3(args)` — команда `v3` на ПК (`vic3tools/bridge.py`). Только читающие
