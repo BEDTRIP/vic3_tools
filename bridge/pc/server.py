@@ -37,6 +37,8 @@ The project is described by a TOML file (``--config``, ``PC_BRIDGE_CONFIG``)::
     [comfy]                               # comfy_* tools: a local ComfyUI (optional)
     url = "http://127.0.0.1:8000"         # ComfyUI Desktop's default port; the portable build uses 8188
     base = ""                             # its folder with models/; "" -- from the running ComfyUI (--base-directory)
+    models = ""                           # where models go; "" -- the default base_path of its extra model paths
+                                          # (ComfyUI Desktop keeps models in ComfyUI-Shared/models), else <base>/models
 
 Every request must carry "Authorization: Bearer <token>" (``<home>/token.txt``, made on the first start). Run it in
 the user's desktop session, not as a service: the game scripts need the screen. ``PC_BRIDGE_TARGET=vm`` (start.ps1
@@ -632,6 +634,18 @@ def _comfy_base() -> Path:
     raise RuntimeError("ComfyUI's folder is unknown: set [comfy] base in the config")
 
 
+def _comfy_models() -> Path:
+    if C.get("models"):
+        return _p(C["models"])
+    argv = _comfy("/system_stats")["system"].get("argv", [])
+    if "--extra-model-paths-config" in argv:
+        cfg = Path(argv[argv.index("--extra-model-paths-config") + 1])
+        bases = re.findall(r"^\s+base_path:\s*'?([^'\n]+?)'?\s*$", cfg.read_text(encoding="utf-8"), re.M)
+        if bases:
+            return Path(bases[0])
+    return _comfy_base() / "models"
+
+
 def _vm_state() -> str:
     try:
         return ps(f"(Get-VM -Name '{VM_NAME}').State").strip()
@@ -662,6 +676,7 @@ def comfy_status() -> dict:
         res["version"] = st["system"].get("comfyui_version")
         res["queue"] = {k: len(v) for k, v in _comfy("/queue").items()}
         res["base"] = str(_comfy_base())
+        res["models"] = str(_comfy_models())
     except Exception as e:
         res["error"] = f"ComfyUI is not reachable: {e}"
     return res
@@ -713,7 +728,7 @@ def comfy_fetch(url: str, folder: str, name: str = "") -> str:
     name = name or Path(urllib.parse.urlparse(url).path).name
     if not re.fullmatch(r"[\w.-]+", name):
         raise ValueError("name: a plain file name")
-    dst = _comfy_base() / "models" / folder / name
+    dst = _comfy_models() / folder / name
     if dst.exists():
         return f"already there: {dst}"
     dst.parent.mkdir(parents=True, exist_ok=True)
