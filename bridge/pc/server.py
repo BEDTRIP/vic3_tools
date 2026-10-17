@@ -217,7 +217,7 @@ mcp = FastMCP(
     "vic3-pc",
     instructions="The user's Windows PC with Victoria 3. Questions about game and mod files: v3(args) -- the "
                  "same `v3` commands as on the PC (def, refs, loc, outline, winner, gui resolve/fit/render, lint, "
-                 "save, log...), read-only. Images on the PC's GPU: comfy_status / comfy_models / comfy_fetch / comfy "
+                 "save, log...), read-only. Images on the PC's GPU: comfy_status / comfy_models / comfy_get / comfy_fetch / comfy "
                  "(ComfyUI; shuts the sandbox VM down -- they share the GPU). GUI test bench: v3(['bench','start']) then v3(['bench','shot',name,"
                  "'--crop',...]) after each push+sync -> get_image('bench/<step>/<name>_crop.png'). Runs: "
                  "checkout(branch) -> sync_mod() -> start_run(...) -> run_status(id) until finished -> read_text / "
@@ -664,6 +664,18 @@ def comfy_models(folder: str = "") -> dict:
     if not folder:
         return {"folders": _comfy("/models")}
     return {folder: _comfy(f"/models/{urllib.parse.quote(folder)}")}
+
+
+@mcp.tool()
+def comfy_get(path: str) -> str:
+    """A read-only GET to ComfyUI's API, for building workflows: "/object_info/<NodeClass>" (a node's inputs and
+    outputs), "/api/userdata?dir=workflows" (saved workflows), "/api/userdata/workflows%2F<name>.json",
+    "/api/workflow_templates" (the installed templates)."""
+    if not path.startswith("/") or any(w in path for w in ("/prompt", "/upload", "/interrupt", "/free")):
+        raise ValueError("a GET path of ComfyUI's API")
+    body = _comfy(path, timeout=120)
+    return (json.dumps(body, ensure_ascii=False) if not isinstance(body, bytes)
+            else body.decode("utf-8", "replace"))[:60000]
 
 
 @mcp.tool()
