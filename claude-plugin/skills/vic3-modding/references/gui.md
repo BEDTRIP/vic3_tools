@@ -49,6 +49,10 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
   frames and masks. ffmpeg does not decode Bink 2; a still for a sample — through the game's `binaries/bink2w64.dll`
   (`BinkOpen` → `BinkGoto` → `BinkDoFrame` → `BinkCopyToBuffer`, BGRA = 5): `vic3_tools/comfy/bk2frames.py`. The first
   frames are often black (fade-in).
+- **The event window crops the picture (bench 2026-10-17, 2560×1440, scale 1).** The picture fills the window's height
+  and is anchored left; about 580×605 px show (a 3:2 picture: its left ~68 %), the right third lies under the
+  half-transparent text panel. Keep the subject in the left two thirds. `event_image = { texture = "…dds" }` (a still)
+  works as well as `video`.
 - **`.gui` can hide whole entities by name, invisible from `common/`.** E&F's `building_details_panel.gui` builds one
   `visible` from twelve `EqualTo_string(ProductionMethodGroup.GetKey,'pmg_X')` — the group is simply not drawn. If a
   widget is missing while the data is fine — look the entity's name up in `gui/` (`v3 refs NAME`).

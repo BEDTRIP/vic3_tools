@@ -44,6 +44,13 @@ v3 bench do "hover 0.42 0.31; wait 2; shot tip"   # vic3_ui steps: click, hover,
 v3 bench stop                          # close and gather the logs
 ```
 
+`--theme ip4` (base, votp, ap1, ip2, ip3, ip4, ep2) starts the guest in that interface theme: graphics are checked in
+every theme. **An event from the console waits for a day:** `console event X` on the paused game logs
+`console_success` and shows nothing; the event comes on the next daily tick, minimized (a line in the right column and
+an envelope on the map, 17.10): `key space; wait 4; key space`, then a click on its line opens the window.
+`Close-Console` clicks the map at (0.62, 0.45) to take the focus off the console line; in the 1836 GBR start that
+opens the sea region «Южная бухта» — not the mod.
+
 The project's hooks: `[bench] hooks = '<folder with vic3_hooks.ps1>'` in `vic3tools.toml`. Crop the shots:
 a whole 2560×1440 frame costs ~2k tokens to read; a subagent can read many shots and report only what matters.
 

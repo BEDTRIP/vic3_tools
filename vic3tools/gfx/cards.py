@@ -36,6 +36,8 @@ KINDS: dict[str, dict] = {
                            folder="gfx/interface/icons/timed_modifier_icons", mips=False),
     "logo": dict(size=[256, 256], canvas=[1024, 1024], bg="#ffffff", post=["cutout"], models=["qwen21", "klein4b"],
                  folder="gfx/interface/icons/company_icons/historical_company_icons", mips=True),
+    # the event window shows the picture at its full height, anchored left: the left ~68 % of a 3:2 picture is seen,
+    # the right third lies under the text panel -- the subject goes in the left two thirds (bench 17.10)
     "event": dict(size=[1536, 1024], canvas=[1536, 1024], bg="#808080", post=[], models=["qwen21"],
                   folder="(vanilla_events/ in ComfyUI's input: stills of gfx/event_pictures/*.bk2)", mips=True),
     "illustration": dict(size=[1108, 300], canvas=[1664, 448], bg="#808080", post=[], models=["qwen21"],
