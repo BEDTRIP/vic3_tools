@@ -26,7 +26,10 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
   `default_block_window` with the template `sidepanel_plus_sidebar_size` (`size = { 613 0 }`, ~25 % of the screen);
   `size = { 1226 0 }` in `type budget_panel = default_block_window { … }` opens the panel at ~48 %. Width is per window,
   not per tab. Vanilla content stretches only where it is laid out by the file's `@panel_width*` constants (double
-  them too); content with fixed sizes stays a narrow centred column.
+  them too); content with fixed sizes stays a narrow centred column. The header (`block "window_header"` of
+  `default_block_window`, `gui/block_windows.gui`) and `top_illu` take their width from constants of *their* files —
+  override `window_header` with a copy at your width and give `top_illu` a `size`; the header textures
+  (`sidepanel_top_header`: `Corneredstretched`, `spriteborder` 80 / 280) stretch cleanly to 1226.
 - **`.gui` can hide whole entities by name, invisible from `common/`.** E&F's `building_details_panel.gui` builds one
   `visible` from twelve `EqualTo_string(ProductionMethodGroup.GetKey,'pmg_X')` — the group is simply not drawn. If a
   widget is missing while the data is fine — look the entity's name up in `gui/` (`v3 refs NAME`).
