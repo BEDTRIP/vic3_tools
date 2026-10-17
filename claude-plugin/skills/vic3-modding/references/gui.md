@@ -41,12 +41,12 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
   (dlc011), `ip3` (dlc014), `ip4` (dlc016), `ep2` (dlc018); each replaces every header layer (`top_header_*`,
   `fullscreen_header_*`, `header_color`, `header_borders`, `header_bg_dec`, `big_header_pattern`). A mod's own texture
   is not themed: a themed variant goes to `gfx/skins/<name>/…` of the mod (picked up from a mod — not checked yet).
+  Vanilla UI textures are uncompressed RGBA with mipmaps (1140×212 → 1 288 512 bytes).
 - **Event pictures are videos (2026-10-17).** `event_image = { video = "<name>" }` plays `gfx/event_pictures/<name>.bk2`
   (Bink 2, 1700×1200, ~300 frames; DLC ones in `dlc/<dlc>/gfx/event_pictures/`); the 13 `.dds` there are character
   frames and masks. ffmpeg does not decode Bink 2; a still for a sample — through the game's `binaries/bink2w64.dll`
   (`BinkOpen` → `BinkGoto` → `BinkDoFrame` → `BinkCopyToBuffer`, BGRA = 5): `vic3_tools/comfy/bk2frames.py`. The first
   frames are often black (fade-in).
-  Vanilla UI textures are uncompressed RGBA with mipmaps (1140×212 → 1 288 512 bytes).
 - **`.gui` can hide whole entities by name, invisible from `common/`.** E&F's `building_details_panel.gui` builds one
   `visible` from twelve `EqualTo_string(ProductionMethodGroup.GetKey,'pmg_X')` — the group is simply not drawn. If a
   widget is missing while the data is fine — look the entity's name up in `gui/` (`v3 refs NAME`).
