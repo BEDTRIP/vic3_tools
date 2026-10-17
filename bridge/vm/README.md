@@ -12,6 +12,9 @@ Windows 11 Pro / Enterprise / Education (Hyper-V), an NVIDIA or AMD card that su
 1. Enable Hyper-V and reboot.
 2. `New-SandboxVM.ps1 -IsoPath <Windows 11 ISO>` — creates the VM `vic3-sandbox` (all CPU threads, 24 GB static
    memory, 150 GB disk, a GPU partition; GPU-P needs static memory and no checkpoints) and boots it from the ISO.
+   Dynamic memory is not an option for the same reason; to share the PC, lower it with the VM off
+   (`Set-VMMemory vic3-sandbox -StartupBytes 20GB`) or keep it off when not testing — runs start it themselves,
+   the bridge's `comfy` shuts it down (both use the GPU).
 3. Install Windows in the VM console, create a local user, shut the VM down from inside.
 4. `Copy-GpuDriver.ps1` — copies the PC's GPU driver into the VM disk. **Again after every driver update on the PC.**
    Start the VM; install Steam, sign in, install Victoria 3 (the same version as on the PC).

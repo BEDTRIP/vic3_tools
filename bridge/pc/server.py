@@ -34,6 +34,10 @@ The project is described by a TOML file (``--config``, ``PC_BRIDGE_CONFIG``)::
     [roots]                               # more readable roots (paths relative to the config)
     orig = "../vic3_mods_out"
 
+    [comfy]                               # comfy_* tools: a local ComfyUI (optional)
+    url = "http://127.0.0.1:8000"         # ComfyUI Desktop's default port; the portable build uses 8188
+    base = ""                             # its folder with models/; "" -- from the running ComfyUI (--base-directory)
+
 Every request must carry "Authorization: Bearer <token>" (``<home>/token.txt``, made on the first start). Run it in
 the user's desktop session, not as a service: the game scripts need the screen. ``PC_BRIDGE_TARGET=vm`` (start.ps1
 -Vm): runs go to the Hyper-V sandbox VM (bridge/vm/Invoke-SandboxRun.ps1) and the screen stays free; ``start_run(target=
@@ -52,7 +56,11 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import tomllib
+import urllib.parse
+import urllib.request
+import uuid
 from pathlib import Path
 
 import uvicorn
@@ -86,6 +94,9 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 VM = os.environ.get("PC_BRIDGE_TARGET", "pc") == "vm"
 VM_NAME = os.environ.get("PC_BRIDGE_VM") or B.get("vm", "vic3-sandbox")
 T = CFG.get("tools", {})
+C = CFG.get("comfy", {})
+COMFY = C.get("url", "http://127.0.0.1:8000").rstrip("/")
+GEN = HOME / "gen"
 PY_TOOLS = set(T.get("names", []))
 PY_TOOL_GLOBS = tuple(T.get("globs", []))
 
@@ -95,7 +106,7 @@ def _roots() -> dict[str, Path]:
     from vic3tools.core import paths
 
     found = paths.resolve_roots()
-    roots = {"docs": DOCS, "runs": RUNS, "bench": BENCH}
+    roots = {"docs": DOCS, "runs": RUNS, "bench": BENCH, "gen": GEN}
     for k in ("game", "workshop"):
         if found[k].ok:
             roots[k] = found[k].path
@@ -107,6 +118,7 @@ def _roots() -> dict[str, Path]:
 
 HOME.mkdir(parents=True, exist_ok=True)
 RUNS.mkdir(exist_ok=True)
+GEN.mkdir(exist_ok=True)
 for _name, _target in B.get("links", {}).items():
     _link, _target = HOME / _name, _p(_target)
     if _target.is_dir() and not _link.exists():
@@ -205,7 +217,8 @@ mcp = FastMCP(
     "vic3-pc",
     instructions="The user's Windows PC with Victoria 3. Questions about game and mod files: v3(args) -- the "
                  "same `v3` commands as on the PC (def, refs, loc, outline, winner, gui resolve/fit/render, lint, "
-                 "save, log...), read-only. GUI test bench: v3(['bench','start']) then v3(['bench','shot',name,"
+                 "save, log...), read-only. Images on the PC's GPU: comfy_status / comfy_models / comfy_fetch / comfy "
+                 "(ComfyUI; shuts the sandbox VM down -- they share the GPU). GUI test bench: v3(['bench','start']) then v3(['bench','shot',name,"
                  "'--crop',...]) after each push+sync -> get_image('bench/<step>/<name>_crop.png'). Runs: "
                  "checkout(branch) -> sync_mod() -> start_run(...) -> run_status(id) until finished -> read_text / "
                  "grep / get_image on runs/<id>/... and docs/... . See the project's skill vic3-sandbox.",
@@ -583,6 +596,170 @@ def wt_diff(repo: str = "") -> str:
 def fork_diff() -> str:
     """wt_diff(repo="fork")."""
     return wt_diff("fork")
+
+
+# --- ComfyUI: image generation on the PC's GPU ---------------------------------------------------------------------
+# The sandbox VM holds a partition of the same GPU and static memory, so generation and the VM take turns.
+
+_fetches = {}         # model file -> "downloading 1.2/9.8 GB" | "done" | "error: ..."
+FETCH_HOSTS = ("huggingface.co", "civitai.com")
+
+
+def _comfy(path, data=None, timeout=60):
+    req = urllib.request.Request(COMFY + path, data=data,
+                                 headers={"Content-Type": "application/json"} if data is not None else {})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        body = r.read()
+    return json.loads(body) if body[:1] in (b"{", b"[") else body
+
+
+def _comfy_base() -> Path:
+    if C.get("base"):
+        return _p(C["base"])
+    argv = _comfy("/system_stats")["system"].get("argv", [])
+    if "--base-directory" in argv:
+        return Path(argv[argv.index("--base-directory") + 1])
+    raise RuntimeError("ComfyUI's folder is unknown: set [comfy] base in the config")
+
+
+def _vm_state() -> str:
+    try:
+        return ps(f"(Get-VM -Name '{VM_NAME}').State").strip()
+    except Exception as e:
+        return f"unknown ({str(e).splitlines()[-1] if str(e) else e})"
+
+
+def _free_gpu() -> str:
+    """Shut the sandbox VM down for a generation; refuse while a run uses it."""
+    rid = active_run()
+    if rid and _targets.get(rid):
+        raise RuntimeError(f"run {rid} is going in the VM: stop_run first or wait")
+    if _vm_state() == "Running":
+        ps(f"Stop-VM -Name '{VM_NAME}' -Force", timeout=300)
+        log("comfy: the VM shut down to free the GPU")
+        return "the VM was shut down (a bench in it is gone)"
+    return ""
+
+
+@mcp.tool()
+def comfy_status() -> dict:
+    """ComfyUI: up or not, the GPU and its free memory, the queue, its folder, model downloads in progress, and the
+    sandbox VM's state (it shares the GPU)."""
+    res = {"url": COMFY, "vm": _vm_state(), "downloads": dict(_fetches)}
+    try:
+        st = _comfy("/system_stats")
+        res["devices"] = [{k: d.get(k) for k in ("name", "vram_total", "vram_free")} for d in st.get("devices", [])]
+        res["version"] = st["system"].get("comfyui_version")
+        res["queue"] = {k: len(v) for k, v in _comfy("/queue").items()}
+        res["base"] = str(_comfy_base())
+    except Exception as e:
+        res["error"] = f"ComfyUI is not reachable: {e}"
+    return res
+
+
+@mcp.tool()
+def comfy_models(folder: str = "") -> dict:
+    """Model files ComfyUI sees: folder "" -- the folder names (checkpoints, diffusion_models, text_encoders, vae,
+    loras...); a name -- its files."""
+    if not folder:
+        return {"folders": _comfy("/models")}
+    return {folder: _comfy(f"/models/{urllib.parse.quote(folder)}")}
+
+
+@mcp.tool()
+def comfy_fetch(url: str, folder: str, name: str = "") -> str:
+    """Download a model file into ComfyUI's models/<folder>/ in the background (huggingface.co, civitai.com only);
+    progress in comfy_status()['downloads']. A file already there is not fetched again."""
+    host = urllib.parse.urlparse(url).hostname or ""
+    if not any(host == h or host.endswith("." + h) for h in FETCH_HOSTS):
+        raise ValueError(f"hosts: {', '.join(FETCH_HOSTS)}")
+    if not re.fullmatch(r"[\w.-]+", folder):
+        raise ValueError("folder: a models/ subfolder name")
+    name = name or Path(urllib.parse.urlparse(url).path).name
+    if not re.fullmatch(r"[\w.-]+", name):
+        raise ValueError("name: a plain file name")
+    dst = _comfy_base() / "models" / folder / name
+    if dst.exists():
+        return f"already there: {dst}"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+
+    def get():
+        part = dst.with_suffix(dst.suffix + ".part")
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r, open(part, "wb") as f:
+                size, done = int(r.headers.get("Content-Length") or 0), 0
+                while chunk := r.read(1 << 22):
+                    f.write(chunk)
+                    done += len(chunk)
+                    _fetches[name] = f"downloading {done / 1e9:.1f}/{size / 1e9:.1f} GB"
+            part.replace(dst)
+            _fetches[name] = "done"
+        except Exception as e:
+            _fetches[name] = f"error: {e}"
+        log(f"comfy_fetch {url} -> {dst}: {_fetches[name]}")
+
+    _fetches[name] = "starting"
+    threading.Thread(target=get, daemon=True).start()
+    return f"downloading to {dst}"
+
+
+@mcp.tool()
+def comfy(workflow: dict, inputs: list[str] | None = None, wait: int = 45) -> dict:
+    """Run a ComfyUI workflow (API format: {"<node id>": {"class_type": ..., "inputs": {...}}}).
+    inputs: images to upload first ('wt/...', 'game/...', 'gen/...', any root; DDS goes as PNG); the strings "$in0",
+    "$in1"... in the workflow become their uploaded names (for LoadImage). Shuts the sandbox VM down first (they share
+    the GPU). Waits up to `wait` s (the client gives a call 60 s): unfinished -> comfy_result(id) later.
+    Output images: gen/<prompt id>/ -- read them with get_image."""
+    from PIL import Image as PImage
+    note = _free_gpu()
+    text = json.dumps(workflow)
+    for i, src in enumerate(inputs or []):
+        f = resolve(src)
+        name, data = f.name, f.read_bytes()
+        if f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+            buf = io.BytesIO()
+            PImage.open(f).save(buf, "PNG")
+            name, data = f.stem + ".png", buf.getvalue()
+        boundary = uuid.uuid4().hex
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"{name}\"\r\n"
+                f"Content-Type: application/octet-stream\r\n\r\n").encode() + data + \
+               f"\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"overwrite\"\r\n\r\ntrue\r\n" \
+               f"--{boundary}--\r\n".encode()
+        req = urllib.request.Request(COMFY + "/upload/image", data=body,
+                                     headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            text = text.replace(f'"$in{i}"', json.dumps(json.loads(r.read())["name"]))
+    pid = _comfy("/prompt", json.dumps({"prompt": json.loads(text), "client_id": "vic3-pc"}).encode())["prompt_id"]
+    log(f"comfy {pid} queued")
+    return {**comfy_result(pid, wait), **({"note": note} if note else {})}
+
+
+@mcp.tool()
+def comfy_result(prompt_id: str, wait: int = 45) -> dict:
+    """A queued comfy() run: waits up to `wait` s; done -> its images saved to gen/<prompt id>/ (with errors, if any);
+    else "running" with the queue's length."""
+    end = time.time() + wait
+    while True:
+        h = _comfy(f"/history/{prompt_id}")
+        if prompt_id in h:
+            break
+        if time.time() > end:
+            return {"id": prompt_id, "state": "running",
+                    "queue": {k: len(v) for k, v in _comfy("/queue").items()}}
+        time.sleep(2)
+    entry = h[prompt_id]
+    out = GEN / prompt_id
+    out.mkdir(exist_ok=True)
+    files = []
+    for node in entry.get("outputs", {}).values():
+        for im in node.get("images", []):
+            q = urllib.parse.urlencode({k: im[k] for k in ("filename", "subfolder", "type")})
+            (out / im["filename"]).write_bytes(_comfy(f"/view?{q}", timeout=120))
+            files.append(f"gen/{prompt_id}/{im['filename']}")
+    status = entry.get("status", {})
+    log(f"comfy {prompt_id} {status.get('status_str')}: {files}")
+    return {"id": prompt_id, "state": status.get("status_str"), "files": files,
+            "errors": [m[1] for m in status.get("messages", []) if m[0] == "execution_error"]}
 
 
 class BearerAuth:

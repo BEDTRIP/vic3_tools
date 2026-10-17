@@ -297,6 +297,7 @@ its allowed Python tools, more readable folders; the format is at the top of `se
 `checkout_fork` (a pushed branch into a worktree of the bridge), `sync_mod` / `sync_fork` / `install_mod` (the live
 mod folder), `start_run` / `run_status` / `stop_run` (the game scripts with the project's hooks, on the PC or with
 `-Vm` in the sandbox VM), `list_dir` / `read_text` / `grep` / `get_image`, `py_tool`, `pull_repos`, `wt_diff`, and
+`comfy_status` / `comfy_models` / `comfy_fetch` / `comfy` / `comfy_result` (images on the PC's GPU through a local ComfyUI, `[comfy]` of the config; the sandbox VM shares the GPU, so `comfy` shuts it down first and refuses during a run in it), and
 `v3(args)` — a `v3` command on the PC (`vic3tools/bridge.py`). Read-only commands and the bench only: `gui set` only
 with `--dry`; `lint --baseline`, `setup`, `hook`, `docs` are refused — the cloud edits its own clone and pushes. Shots
 of the bench are read with `get_image('bench/<step>/<name>.png')`.
