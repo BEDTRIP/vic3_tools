@@ -250,7 +250,8 @@ def gen_klein4b(g, x, y, prompt, refs, width, height, steps=4, denoise=1.0, late
     enc = g.add("CLIPTextEncode", (x + 360, y), size=[440, 260], title="Промпт (FLUX.2 klein)", clip=clip["CLIP"], text=prompt)
     pos, neg = enc["CONDITIONING"], g.add("ConditioningZeroOut", (x + 360, y + 300), conditioning=enc["CONDITIONING"])["CONDITIONING"]
     for i, r in enumerate(refs):
-        sc = g.add("ImageScaleToTotalPixels", (x + 360, y + 420 + i * 260), image=r, upscale_method="lanczos", megapixels=1.0)
+        sc = g.add("ImageScaleToTotalPixels", (x + 360, y + 420 + i * 260), image=r, upscale_method="lanczos",
+                    megapixels=1.0 if len(refs) <= 2 else 0.5)
         le = g.add("VAEEncode", (x + 600, y + 420 + i * 260), pixels=sc["IMAGE"], vae=vae["VAE"])
         pos = g.add("ReferenceLatent", (x + 600, y + 520 + i * 260), conditioning=pos, latent=le["LATENT"])["CONDITIONING"]
         neg = g.add("ReferenceLatent", (x + 600, y + 600 + i * 260), conditioning=neg, latent=le["LATENT"])["CONDITIONING"]
@@ -339,6 +340,11 @@ MEMO = """# ld_00 — памятка: графика E&F под Victoria 3
 | ld_40 | доводка: увеличение с деталями, перерисовка куска по маске |
 | ld_50 | предпросмотр слоёв так, как их сложит игра |
 
+## Образцы
+Источник стиля — **ваниль** (Д.R10.13): 4–8 картинок того же вида. Графика E&F нарисована старыми нейросетями —
+только подсказка содержания. Картинки событий в ванили — видео `.bk2`: их кадры (126 штук) — во входной папке
+ComfyUI, `vanilla_events/` (`comfy/bk2frames.py`).
+
 ## Размеры
 - Генерировать в пропорциях не круче ~4:1 и в 2–4 раза крупнее нужного, потом уменьшать (lanczos). Полоса 10:1 —
   шум, повторы, склейки.
@@ -391,40 +397,65 @@ def _save(g, pos, image, prefix):
     g.add("SaveImage", pos, size=[420, 360], images=image, filename_prefix=prefix)
 
 
-def wf_compare(model):
+ICON_SAMPLES = ["gfx/interface/icons/building_icons/building_financial_district.dds",
+                "gfx/interface/icons/building_icons/building_company_hq.dds",
+                "gfx/interface/icons/building_icons/building_government_administration.dds",
+                "gfx/interface/icons/building_icons/building_trade_center.dds",
+                "gfx/interface/icons/building_icons/building_university.dds",
+                "gfx/interface/icons/building_icons/building_port.dds"]
+
+
+def _collage(g, pos, refs, cols=3):
+    """The samples as one picture, rows of `cols` (ImageStitch): a model that takes few references sees them all."""
+    rows = []
+    for r in range(0, len(refs), cols):
+        cur = refs[r]
+        for k, im in enumerate(refs[r + 1:r + cols]):
+            cur = g.add("ImageStitch", (pos[0] + k * 240, pos[1] + len(rows) * 200), image1=cur, image2=im, direction="right",
+                        match_image_size=True, spacing_width=0, spacing_color="white")["IMAGE"]
+        rows.append(cur)
+    cur = rows[0]
+    for k, row in enumerate(rows[1:]):
+        cur = g.add("ImageStitch", (pos[0] + 720, pos[1] + k * 200), image1=cur, image2=row, direction="down",
+                    match_image_size=True, spacing_width=0, spacing_color="white")["IMAGE"]
+    return cur
+
+
+def wf_compare(model, samples=ICON_SAMPLES):
     """All four models on one prompt and the same samples; a labelled sheet."""
     g = Graph("ld_01")
     g.note((-640, 0), """# ld_01 — сравнение моделей (В.R10.6)
 Один промпт и одни образцы — четыре модели; внизу лист с подписями.
-- **Промпт** — узел «Промпт» (общий). Qwen ссылается на образцы как `<image1>`, FLUX.2 klein — «image 1», Krea-2 берёт
-  из образцов только стиль, Z-Image образцов не видит.
-- **Образцы** — узлы V3 Load Game Image (путь в дереве игры; root = fork — графика мода, workshop — оригинал E&F).
-- **Размер** — общий (по умолчанию 1024×1024); для полос — не круче 4:1.
-- Три задачи сравнения: узор (слой орнамента), значок (валюта / банк), картинка события.
-- Модели грузятся по очереди (12 ГБ): весь лист — несколько минут.""", size=[600, 560])
+- **Образцы — ваниль** (Д.R10.13): 4–8 картинок того же вида. Графика E&F нарисована старыми нейросетями — не образец
+  стиля. Лишний образец — удалите узел (и его вход у генераторов), недостающий — скопируйте.
+- **Промпт** — узел «Промпт» (общий). Qwen ссылается на образцы как `<image1>` … `<image6>`, FLUX.2 klein видит каждый
+  образец отдельно, Krea-2 — первые три образца (больше не принимает; берёт стиль, не содержание; коллаж всех
+  образцов одной картинкой он перерисовывает как раскладку 2×2), Z-Image образцов не видит — стиль словами.
+- **Подложка образцов** (V3 Fill) — белая для значков, серая для слоёв: прозрачное иначе доходит до модели белым.
+- **Размер** — общий; для полос — не круче 4:1.
+- Модели грузятся по очереди (12 ГБ): весь лист — пара минут.""", size=[600, 600])
     prompt = g.add("PrimitiveStringMultiline", (0, 0), title="Промпт", size=[520, 220],
-                   value="A Victorian-era engraved ornamental frieze of oak leaves and acorns in the style of <image1>, "
-                         "monochrome grey relief on a flat neutral grey background, no frame, no text")
+                   value="A Victoria 3 building icon of a national central bank in the same painted style, three-quarter "
+                         "aerial view, rounded-square frame and moderate detail as the reference images. No text.")
     w = g.add("PrimitiveInt", (0, 260), title="Ширина", value=1024)
     h = g.add("PrimitiveInt", (0, 360), title="Высота", value=1024)
-    r1 = _sample(g, (0, 480), "gfx/interface/backgrounds/fullscreen_header_dec.dds", "Образец 1 (стиль)", flat="#808080")
-    r2 = _sample(g, (0, 800), "gfx/interface/icons/goods_icons/grain.dds", "Образец 2", flat="#ffffff")
-    refs = [r1["image"], r2["image"]]
+    refs = [_sample(g, (0, 480 + i * 320), p, f"Образец {i + 1}", flat="#ffffff")["image"] for i, p in enumerate(samples)]
     outs, labels = [], []
     for i, m in enumerate(MODELS):
-        y = 900 + i * 900
-        g.group(LABEL[m], [560, y - 60, 1600, 820])
-        img, _ = MODELS[m](g, 600, y, prompt["STRING"], refs, w["INT"], h["INT"])
-        sc = g.add("ImageScale", (2000, y), title="К размеру холста (для листа)", image=img, upscale_method="lanczos",
-                    width=w["INT"], height=h["INT"], crop="center")
+        y = 900 + i * 1100
+        g.group(LABEL[m], [560, y - 60, 1700, 1000])
+        mrefs = refs[:3] if m == "krea2" else [] if m == "zimage" else refs
+        img, _ = MODELS[m](g, 600, y, prompt["STRING"], mrefs, w["INT"], h["INT"])
+        sc = g.add("ImageScale", (2100, y), title="К размеру холста (для листа)", image=img, upscale_method="lanczos",
+                   width=w["INT"], height=h["INT"], crop="center")
         outs.append(sc["IMAGE"])
         labels.append(LABEL[m])
-        _save(g, (2000, y + 160), img, f"ld_01/{m}")
+        _save(g, (2100, y + 160), img, f"ld_01/{m}")
     cur = outs[0]
     for i, o in enumerate(outs[1:]):
-        cur = g.add("ImageBatch", (2400, 900 + i * 120), image1=cur, image2=o)["IMAGE"]
-    sheet = g.add("V3Sheet", (2700, 900), images=cur, labels="\n".join(labels), columns=4, cell_width=512)
-    _save(g, (3100, 900), sheet["IMAGE"], "ld_01/sheet")
+        cur = g.add("ImageBatch", (2500, 900 + i * 120), image1=cur, image2=o)["IMAGE"]
+    sheet = g.add("V3Sheet", (2800, 900), images=cur, labels="\n".join(labels), columns=4, cell_width=512)
+    _save(g, (3200, 900), sheet["IMAGE"], "ld_01/sheet")
     return g
 
 

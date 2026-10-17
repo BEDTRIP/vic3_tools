@@ -47,3 +47,10 @@ as RGB + mask.
 | ld_50 | the fullscreen header's layers as the game stacks them (colour, cloth, velvet, shading, shape mask, ornament, frame, caption) |
 
 `save` overwrites the workflow in ComfyUI: hand edits made there are lost when it is rebuilt.
+
+## Vanilla samples that are not pictures
+
+Vanilla event pictures are Bink 2 videos (`gfx/event_pictures/*.bk2`, DLC — `dlc/<dlc>/gfx/event_pictures/`); ffmpeg
+does not read Bink 2. `bk2frames.py` takes a still from each through the game's own `bink2w64.dll` (64-bit Python
+with Pillow): `py comfy/bk2frames.py <ComfyUI input>/vanilla_events <...>.bk2 ...` — then Load Image, or V3 Load Game
+Image with `root = absolute`.
