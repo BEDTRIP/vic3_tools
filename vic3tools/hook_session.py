@@ -30,6 +30,8 @@ file:line and what the game actually takes. Use it where it helps; `v3 <command>
 - Saves and logs: `save` (a save, read by pieces), `log` (record families, two runs compared, speed, `log profile`).
 - Release: `release check|build|done MOD` (Workshop: clean build, change note, description, SteamCMD VDF), `release
   zip` (a set for one game version); `mods snapshot|history|diff` (the set's mods' versions kept in git).
+- Pictures: `gfx new|gen|pick|build CARD` (a mod's picture from a card in `gfx_src/`: variants in ComfyUI → the
+  chosen one → a DDS as vanilla's), `gfx check FILE.dds` (format, size against vanilla), `gfx workflows`.
 - The game: `bench` (the game open in the sandbox VM: edit → shot). Another set: `--playset NAME`, `--mods DIR…`."""
 
 

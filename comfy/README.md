@@ -26,18 +26,20 @@ as RGB + mask.
 
 ## Workflows
 
-`workflows.py` describes the workflows once; sockets and widget order come from the running ComfyUI's
-`/object_info`. Run it with ComfyUI's Python (it has torch, needed for the vic3 node specs before a restart):
+`vic3tools/gfx/workflows.py` describes the workflows once; sockets and widget order come from the running ComfyUI's
+`/object_info`. `v3 gfx workflows ...` (or `comfy/workflows.py` with ComfyUI's own Python, which has torch for the
+vic3 node specs before ComfyUI has loaded them):
 
 ```
-<ComfyUI>\.venv\Scripts\python.exe comfy\workflows.py save [--model qwen21|zimage|klein4b|krea2] [--only ld_1]
-<ComfyUI>\.venv\Scripts\python.exe comfy\workflows.py run ld_10 --set "Промпт (Qwen 2.1).prompt=..." --out DIR [--previews]
+v3 gfx workflows save [--model qwen21|zimage|klein4b|krea2] [--only ld_1]
+v3 gfx workflows run ld_10 --set "Промпт (Qwen 2.1).prompt=..." --out DIR [--previews] [--repeat N]
 ```
 
 | workflow | for |
 | --- | --- |
 | ld_00 | memo: sizes, how the game builds a picture, layers, themes, the nodes |
 | ld_01 | four models on one prompt and the same samples → a labelled sheet |
+| ld_02 | variants of one picture: Qwen 2.1 and FLUX.2 klein, one per run (Run ×N) — what `v3 gfx gen` runs |
 | ld_10 | a layer by samples (in its own form: grey ornament, no frame); a piece, not a stretched band |
 | ld_11 | seamless piece: roll by half, repaint the seam band, roll back, 3×1 check |
 | ld_12 | end + repeat for `spriteborder` and the mirror: outpaint the end, then the whole header as the game draws it |
@@ -54,3 +56,20 @@ Vanilla event pictures are Bink 2 videos (`gfx/event_pictures/*.bk2`, DLC — `d
 does not read Bink 2. `bk2frames.py` takes a still from each through the game's own `bink2w64.dll` (64-bit Python
 with Pillow): `py comfy/bk2frames.py <ComfyUI input>/vanilla_events <...>.bk2 ...` — then Load Image, or V3 Load Game
 Image with `root = absolute`.
+
+## Cards: `v3 gfx`
+
+A picture of a mod is a card `<mod>/gfx_src/<kind>/<name>.toml` (target DDS, kind, prompt, vanilla samples, sizes,
+models, steps) next to the chosen source `<name>.png`; variants go to `<name>.variants/` (keep it out of git).
+
+```
+v3 gfx new  <mod>/gfx_src/goods/x.toml --kind goods --target gfx/interface/icons/goods_icons/x.dds --prompt "..."
+v3 gfx gen  <card> --repeat 4      # Q1..Q4, K1..K4 + variants.png
+v3 gfx pick <card> Q3              # cut out (Qwen 2.1 second pass) when the kind needs it -> x.png
+v3 gfx build <card> | --mod <mod>  # x.png -> size / tint / grey -> the DDS (BGRA8 + mips, as vanilla)
+v3 gfx check <file.dds>...         # format, mips, size against vanilla of the same folder
+```
+
+Kinds (`vic3tools/gfx/cards.py`, from the survey of vanilla's interface): goods, invention, event_icon, building,
+law (grey relief, tinted bronze), production_method and timed_modifier (grey relief, tinted), logo, event,
+illustration, layer.

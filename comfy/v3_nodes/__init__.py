@@ -1,3 +1,4 @@
+# ruff: noqa: E501 -- node specs with tooltips read better on one line each
 """ComfyUI nodes for Victoria 3 interface graphics (category "vic3").
 
 The game builds a wide picture from pieces and layers: an end and a repeated middle (spriteborder, Corneredtiled), a
