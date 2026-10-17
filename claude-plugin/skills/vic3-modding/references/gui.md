@@ -49,10 +49,13 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
   frames and masks. ffmpeg does not decode Bink 2; a still for a sample — through the game's `binaries/bink2w64.dll`
   (`BinkOpen` → `BinkGoto` → `BinkDoFrame` → `BinkCopyToBuffer`, BGRA = 5): `vic3_tools/comfy/bk2frames.py`. The first
   frames are often black (fade-in).
-- **The event window crops the picture (bench 2026-10-17, 2560×1440, scale 1).** The picture fills the window's height
-  and is anchored left; about 580×605 px show (a 3:2 picture: its left ~68 %), the right third lies under the
-  half-transparent text panel. Keep the subject in the left two thirds. `event_image = { texture = "…dds" }` (a still)
-  works as well as `video`.
+- **The event window stretches the picture to its content box (bench 2026-10-17, 2560×1440, scale 1).** `eventwindow.gui`:
+  the picture (`icon` / `video_icon`, `size = { 100% 100% }`) fills a container 1120 px wide whose height follows the
+  text column (`minimumsize = { -1 606 }` + options): ~1117×612 with almost no text (1.85:1 — a 3:2 picture is
+  stretched ×1.23 sideways), ~1117×747 with a usual description, flavour and 3 options (1.50:1), vanilla 1848.1
+  ~1117×716 (1.56:1; its 1700×1200 video, 1.42:1, is stretched ×1.1). The text panel covers the right half; the left
+  ~52 % shows clear. So: 3:2 for a usual event, the subject in the left half; a short-text event looks stretched.
+  `event_image = { texture = "…dds" }` (a still) works as well as `video`.
 - **`.gui` can hide whole entities by name, invisible from `common/`.** E&F's `building_details_panel.gui` builds one
   `visible` from twelve `EqualTo_string(ProductionMethodGroup.GetKey,'pmg_X')` — the group is simply not drawn. If a
   widget is missing while the data is fine — look the entity's name up in `gui/` (`v3 refs NAME`).
