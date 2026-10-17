@@ -217,7 +217,7 @@ mcp = FastMCP(
     "vic3-pc",
     instructions="The user's Windows PC with Victoria 3. Questions about game and mod files: v3(args) -- the "
                  "same `v3` commands as on the PC (def, refs, loc, outline, winner, gui resolve/fit/render, lint, "
-                 "save, log...), read-only. Images on the PC's GPU: comfy_status / comfy_models / comfy_get / comfy_fetch / comfy "
+                 "save, log...), read-only. Images on the PC's GPU: comfy_status / comfy_models / comfy_get / comfy_save_workflow / comfy_fetch / comfy "
                  "(ComfyUI; shuts the sandbox VM down -- they share the GPU). GUI test bench: v3(['bench','start']) then v3(['bench','shot',name,"
                  "'--crop',...]) after each push+sync -> get_image('bench/<step>/<name>_crop.png'). Runs: "
                  "checkout(branch) -> sync_mod() -> start_run(...) -> run_status(id) until finished -> read_text / "
@@ -677,15 +677,28 @@ def comfy_models(folder: str = "") -> dict:
 
 
 @mcp.tool()
-def comfy_get(path: str) -> str:
+def comfy_get(path: str, offset: int = 0) -> dict:
     """A read-only GET to ComfyUI's API, for building workflows: "/object_info/<NodeClass>" (a node's inputs and
-    outputs), "/api/userdata?dir=workflows" (saved workflows), "/api/userdata/workflows%2F<name>.json",
-    "/api/workflow_templates" (the installed templates)."""
+    outputs), "/templates/index.json" and "/templates/<name>.json" (the installed templates, with their models' URLs),
+    "/api/userdata?dir=workflows" (saved workflows), "/api/userdata/workflows%2F<name>.json". Long answers come in
+    60 000-character parts: text[offset:offset + 60000] and the total length."""
     if not path.startswith("/") or any(w in path for w in ("/prompt", "/upload", "/interrupt", "/free")):
         raise ValueError("a GET path of ComfyUI's API")
     body = _comfy(path, timeout=120)
-    return (json.dumps(body, ensure_ascii=False) if not isinstance(body, bytes)
-            else body.decode("utf-8", "replace"))[:60000]
+    text = json.dumps(body, ensure_ascii=False) if not isinstance(body, bytes) else body.decode("utf-8", "replace")
+    return {"total": len(text), "offset": offset, "text": text[offset:offset + 60000]}
+
+
+@mcp.tool()
+def comfy_save_workflow(name: str, workflow: dict) -> str:
+    """Save a workflow in ComfyUI's UI format (nodes, links, groups; what the user opens and edits in ComfyUI) to its
+    user/default/workflows/<name>.json -- the Workflows sidebar shows it; an existing one is overwritten."""
+    if not re.fullmatch(r"[\w.-]+", name) or not isinstance(workflow.get("nodes"), list):
+        raise ValueError("name: a plain file name; workflow: the UI format with 'nodes'")
+    path = urllib.parse.quote(f"workflows/{name}.json", safe="")
+    _comfy(f"/api/userdata/{path}?overwrite=true", json.dumps(workflow, ensure_ascii=False).encode())
+    log(f"comfy_save_workflow {name}")
+    return f"saved: workflows/{name}.json"
 
 
 @mcp.tool()
