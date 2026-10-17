@@ -415,7 +415,8 @@ def wf_compare(model):
         y = 900 + i * 900
         g.group(LABEL[m], [560, y - 60, 1600, 820])
         img, _ = MODELS[m](g, 600, y, prompt["STRING"], refs, w["INT"], h["INT"])
-        sc = g.add("ImageScale", (2000, y), image=img, upscale_method="lanczos", width=1024, height=1024, crop="disabled")
+        sc = g.add("ImageScale", (2000, y), title="К размеру холста (для листа)", image=img, upscale_method="lanczos",
+                    width=w["INT"], height=h["INT"], crop="center")
         outs.append(sc["IMAGE"])
         labels.append(LABEL[m])
         _save(g, (2000, y + 160), img, f"ld_01/{m}")
