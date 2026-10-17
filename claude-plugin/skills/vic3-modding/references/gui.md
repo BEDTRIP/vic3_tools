@@ -28,8 +28,20 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
   not per tab. Vanilla content stretches only where it is laid out by the file's `@panel_width*` constants (double
   them too); content with fixed sizes stays a narrow centred column. The header (`block "window_header"` of
   `default_block_window`, `gui/block_windows.gui`) and `top_illu` take their width from constants of *their* files —
-  override `window_header` with a copy at your width and give `top_illu` a `size`; the header textures
-  (`sidepanel_top_header`: `Corneredstretched`, `spriteborder` 80 / 280) stretch cleanly to 1226.
+  override `window_header` at your width and give `top_illu` a `size`. The header does not widen well: its ornament
+  `top_header_dec.dds` (1140×212, density 2) is pinned 280 px from each edge, so only a 10 px strip stretches and the
+  pattern breaks; stretched whole it looks drawn out. For a wide window use the fullscreen header instead.
+- **`fullscreen_top_header`** (`gui/shared/backgrounds.gui:54`, used by `fullscreen_block_window`) is vanilla's header for
+  any width: frame `fullscreen_header_frame.dds` (2556 px, Corneredtiled, `spriteborder` 600 — a plain middle line that
+  tiles), ornament `fullscreen_header_dec.dds` as a half (an end piece + a tiling oak pattern, `spriteborder_left` 600)
+  drawn twice, the right half with `mirror = horizontal`, over `fullscreen_header_behind.dds`.
+- **UI themes (2026-10-17).** `common/themes/00_themes.txt`, category `ui_skin_theme`, `ui_skin = "<name>"`; a skin is
+  `gfx/skins/<name>.skin` (`name`, `folder = gfx/skins/<name>`) — a folder mirroring `gfx/interface/`: a file at the same
+  relative path replaces the vanilla one while the theme is on. DLC skins: `votp` (dlc004), `ap1` (dlc007), `ip2`
+  (dlc011), `ip3` (dlc014), `ip4` (dlc016), `ep2` (dlc018); each replaces every header layer (`top_header_*`,
+  `fullscreen_header_*`, `header_color`, `header_borders`, `header_bg_dec`, `big_header_pattern`). A mod's own texture
+  is not themed: a themed variant goes to `gfx/skins/<name>/…` of the mod (picked up from a mod — not checked yet).
+  Vanilla UI textures are uncompressed RGBA with mipmaps (1140×212 → 1 288 512 bytes).
 - **`.gui` can hide whole entities by name, invisible from `common/`.** E&F's `building_details_panel.gui` builds one
   `visible` from twelve `EqualTo_string(ProductionMethodGroup.GetKey,'pmg_X')` — the group is simply not drawn. If a
   widget is missing while the data is fine — look the entity's name up in `gui/` (`v3 refs NAME`).
