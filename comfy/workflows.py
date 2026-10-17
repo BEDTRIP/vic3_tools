@@ -459,6 +459,46 @@ def wf_compare(model, samples=ICON_SAMPLES):
     return g
 
 
+def wf_variants(model, samples=ICON_SAMPLES, models=("qwen21", "klein4b"), n=1):
+    """One prompt, the same samples, two models, n variants each (a batch: one seed, n noises) -> a labelled sheet."""
+    g = Graph("ld_02")
+    g.note((-640, 0), """# ld_02 — варианты значка (Д.R10.15)
+Порядок: обсуждаем значок → промпт и ванильные образцы → **Qwen 2.1 и FLUX.2 klein по 4 варианта** → выбор или правка.
+- **Промпт** — общий; Qwen ссылается на образцы как `<image1>` …, klein видит каждый образец отдельно.
+- **Образцы** — ваниль того же вида (Д.R10.13), 4–8; лишний — удалить узел, недостающий — скопировать.
+- **Варианты — по одному**: счётчик у кнопки Run (Run ×4) — каждый запуск с новым зерном. Пачка (узел «Вариантов»
+  > 1) на 12 ГБ не влезает: Qwen с шестью образцами и пачкой 4 — 90 с на шаг вместо ~2 с.
+- Лист внизу: верхний ряд — Qwen, нижний — klein; номера — для ответа («Q3, но без рамки»).""", size=[600, 420])
+    prompt = g.add("PrimitiveStringMultiline", (0, 0), title="Промпт", size=[520, 220],
+                   value="A Victoria 3 goods icon: a tied bundle of 19th-century banknotes with a red wax seal, painted in "
+                         "the same style, lighting and three-quarter view as the reference images, isolated on a plain "
+                         "white background, no text.")
+    w = g.add("PrimitiveInt", (0, 260), title="Ширина", value=1024)
+    h = g.add("PrimitiveInt", (0, 360), title="Высота", value=1024)
+    b = g.add("PrimitiveInt", (0, 460), title="Вариантов", value=n)
+    refs = [_sample(g, (0, 580 + i * 320), p, f"Образец {i + 1}", flat="#ffffff")["image"] for i, p in enumerate(samples)]
+    outs, labels = [], []
+    for i, m in enumerate(models):
+        y = 900 + i * 1100
+        g.group(LABEL[m], [560, y - 60, 1700, 1000])
+        img, _ = MODELS[m](g, 600, y, prompt["STRING"], refs, w["INT"], h["INT"])
+        latent = next(x for x in reversed(g.nodes) if x.title == "Размер генерации")
+        latent.links_in["batch_size"] = b["INT"]
+        latent.values.pop("batch_size", None)
+        sc = g.add("ImageScale", (2100, y), title="К размеру холста (для листа)", image=img, upscale_method="lanczos",
+                   width=w["INT"], height=h["INT"], crop="center")
+        outs.append(sc["IMAGE"])
+        tag = "Q" if m == "qwen21" else "K" if m == "klein4b" else m
+        labels += [f"{tag}{k + 1} — {LABEL[m]}" for k in range(n)]
+        _save(g, (2100, y + 160), img, f"ld_02/{m}")
+    cur = outs[0]
+    for i, o in enumerate(outs[1:]):
+        cur = g.add("ImageBatch", (2500, 900 + i * 120), image1=cur, image2=o)["IMAGE"]
+    sheet = g.add("V3Sheet", (2800, 900), images=cur, labels="\n".join(labels), columns=n, cell_width=512)
+    _save(g, (3200, 900), sheet["IMAGE"], "ld_02/sheet")
+    return g
+
+
 def wf_layer(model):
     g = Graph("ld_10")
     g.note((-640, 0), """# ld_10 — слой по образцам
@@ -726,7 +766,7 @@ def wf_preview(model):
     return g
 
 
-WORKFLOWS = {"ld_00_памятка": wf_memo, "ld_01_сравнение_моделей": wf_compare, "ld_10_слой": wf_layer,
+WORKFLOWS = {"ld_00_памятка": wf_memo, "ld_01_сравнение_моделей": wf_compare, "ld_02_варианты": wf_variants, "ld_10_слой": wf_layer,
              "ld_11_бесшовный_кусок": wf_seamless, "ld_12_конец_и_повтор": wf_end_repeat, "ld_20_значок": wf_icon,
              "ld_30_иллюстрация": wf_illustration, "ld_40_доводка": wf_refine, "ld_50_предпросмотр_слоёв": wf_preview}
 
@@ -744,7 +784,16 @@ def save(model, only=None, out=None):
         print(f"saved {name} ({len(ui['nodes'])} nodes)")
 
 
-def run(name, model, sets, out, previews=False):
+def run(name, model, sets, out, previews=False, repeat=1):
+    """Queue a workflow `repeat` times (fresh seeds each time); returns {subfolder: [saved files]}."""
+    saved = {}
+    for k in range(repeat):
+        for sub, files in _run_once(name, model, sets, out, previews, k).items():
+            saved.setdefault(sub, []).extend(files)
+    return saved
+
+
+def _run_once(name, model, sets, out, previews, rep):
     fn = next(f for n, f in WORKFLOWS.items() if n.startswith(name))
     g = fn(model)
     api = g.to_api()
@@ -763,7 +812,7 @@ def run(name, model, sets, out, previews=False):
     for node in api.values():
         for k in ("seed", "noise_seed"):
             if k in node["inputs"] and node["inputs"][k] == 0:
-                node["inputs"][k] = int(time.time() * 1000) % 2**48
+                node["inputs"][k] = (int(time.time() * 1000) + 7919 * rep) % 2**48
     pid = http("/prompt", {"prompt": api})["prompt_id"]
     print("queued", pid, flush=True)
     while True:
@@ -776,6 +825,7 @@ def run(name, model, sets, out, previews=False):
                 break
         time.sleep(2)
     Path(out).mkdir(parents=True, exist_ok=True)
+    saved = {}
     for nid, o in h[pid]["outputs"].items():
         for im in o.get("images", []):
             if im.get("type") != "output" and not previews:
@@ -783,7 +833,37 @@ def run(name, model, sets, out, previews=False):
             q = urllib.parse.urlencode({k: im[k] for k in ("filename", "subfolder", "type")})
             dst = Path(out) / f"{name}_{nid}_{im['subfolder'].replace('/', '_')}_{im['filename']}"
             dst.write_bytes(http(f"/view?{q}", timeout=120))
+            saved.setdefault(im["subfolder"], []).append(dst)
             print("saved", dst)
+    return saved
+
+
+def variants_sheet(saved, out, models=("qwen21", "klein4b")):
+    """The variants of `run ld_02 --repeat N` on one sheet: a row per model, Q1..QN / K1..KN."""
+    from PIL import Image, ImageDraw, ImageFont
+    files = [f for fs in saved.values() for f in fs]
+    rows = [(m, sorted(f for f in files if Path(f).name.split("_ld_02_")[-1].startswith(m + "_"))) for m in models]
+    rows = [(m, fs) for m, fs in rows if fs]
+    cell, cap, pad = 512, 34, 8
+    n = max(len(fs) for _, fs in rows)
+    ims = {m: [Image.open(f).convert("RGBA") for f in fs] for m, fs in rows}
+    ch = max(round(cell * im.height / im.width) for v in ims.values() for im in v)
+    sheet = Image.new("RGB", (n * (cell + pad) + pad, len(rows) * (ch + cap + pad) + pad), "#202020")
+    d = ImageDraw.Draw(sheet)
+    try:
+        f = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 22)
+    except OSError:
+        f = ImageFont.load_default()
+    for r, (m, _) in enumerate(rows):
+        tag = {"qwen21": "Q", "klein4b": "K", "krea2": "R", "zimage": "Z"}.get(m, m)
+        for c, im in enumerate(ims[m]):
+            x, y = pad + c * (cell + pad), pad + r * (ch + cap + pad)
+            bg = Image.new("RGBA", im.size, "#ffffff")
+            bg.alpha_composite(im)
+            sheet.paste(bg.convert("RGB").resize((cell, round(cell * im.height / im.width)), Image.LANCZOS), (x, y + cap))
+            d.text((x + 4, y + 4), f"{tag}{c + 1} — {LABEL[m]}", font=f, fill="#e0e0e0")
+    sheet.save(out)
+    print("sheet", out)
 
 
 def main():
@@ -799,12 +879,15 @@ def main():
     r.add_argument("--set", action="append", default=[], help="Title.widget=value (or widget=value for all)")
     r.add_argument("--out", default="comfy_out")
     r.add_argument("--previews", action="store_true", help="also fetch what Preview Image nodes showed")
+    r.add_argument("--repeat", type=int, default=1, help="queue it N times with fresh seeds (ld_02: N variants per model)")
     sub.add_parser("list")
     a = ap.parse_args()
     if a.cmd == "save":
         save(a.model, a.only, a.out)
     elif a.cmd == "run":
-        run(a.name, a.model, a.set, a.out, a.previews)
+        saved = run(a.name, a.model, a.set, a.out, a.previews, a.repeat)
+        if a.name.startswith("ld_02"):
+            variants_sheet(saved, str(Path(a.out) / "variants.png"))
     else:
         print("\n".join(WORKFLOWS))
 
