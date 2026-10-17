@@ -22,6 +22,11 @@ Checked in the game with a probe window on 2026-10-15 unless dated otherwise. Wo
 - **A free-standing top-level widget of a mod's file is not drawn on screen** (hidden "hook" widgets with a `state`,
   CMF's `com_hidden_trigger` pattern, are reported to fire — not re-checked). To show your own window: a child of a
   vanilla window or of `ingame_hud`, a CMF hook, or a journal entry widget.
+- **A side panel's width is the instance's `size`** (2026-10-17, bench at 2560×1440). Vanilla side panels are
+  `default_block_window` with the template `sidepanel_plus_sidebar_size` (`size = { 613 0 }`, ~25 % of the screen);
+  `size = { 1226 0 }` in `type budget_panel = default_block_window { … }` opens the panel at ~48 %. Width is per window,
+  not per tab. Vanilla content stretches only where it is laid out by the file's `@panel_width*` constants (double
+  them too); content with fixed sizes stays a narrow centred column.
 - **`.gui` can hide whole entities by name, invisible from `common/`.** E&F's `building_details_panel.gui` builds one
   `visible` from twelve `EqualTo_string(ProductionMethodGroup.GetKey,'pmg_X')` — the group is simply not drawn. If a
   widget is missing while the data is fine — look the entity's name up in `gui/` (`v3 refs NAME`).
