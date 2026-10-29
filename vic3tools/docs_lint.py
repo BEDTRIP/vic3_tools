@@ -698,7 +698,7 @@ class Checker:
         dre = re.compile(pat) if pat else None
         for f in self._tracked(repo.root):
             p = repo.root / f
-            if p.suffix not in ext or matches(f, skip) or not p.is_file():
+            if p.suffix not in ext or matches(f, skip) or f in (CONFIG, KNOWN) or not p.is_file():
                 continue
             try:
                 lines = p.read_bytes().decode("utf-8-sig").replace("\r\n", "\n").split("\n")

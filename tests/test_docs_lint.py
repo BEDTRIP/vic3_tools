@@ -76,7 +76,8 @@ def test_ambiguous_and_known(tmp_path):
     doc(node / "mod" / "docs" / "e.md", body="[[README]]\n")
     res = docs_lint.check(node)
     assert codes(res) == [("docs/e.md", "link_ambiguous")]
-    write(node / "mod" / "docs-check-known.txt", "docs/e.md: link_ambiguous README  # why\n")
+    # the known list is not code, though it is a .txt and names decisions
+    write(node / "mod" / "docs-check-known.txt", "docs/e.md: link_ambiguous README  # why, not Д.9\n")
     res = docs_lint.check(node)
     assert codes(res) == [] and res.known == 1
 
