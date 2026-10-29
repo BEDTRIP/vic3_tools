@@ -70,6 +70,13 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--repo", type=Path, default=Path.cwd(), help="repo root (default: current folder)")
     d.add_argument("--json", action="store_true")
     d.set_defaults(func=cmd_docs_check_ru)
+    d = dsub.add_parser("check", help="check documents by the methodology: headers, links, mentions, paths, code "
+                        "(the layout — docs-check.toml of the repo; from a node — the whole vault)")
+    d.add_argument("--repo", type=Path, default=Path.cwd(), help="a folder in the repo or node (default: current)")
+    d.add_argument("--fix", action="store_true", help="turn mentions as text into links (not history, not generated)")
+    d.add_argument("--notes", action="store_true", help="also list notes one by one (orphans, stale, known)")
+    d.add_argument("--json", action="store_true")
+    d.set_defaults(func=cmd_docs_check)
 
     args = parser.parse_args(argv)
     cfg = paths.load_config()
@@ -238,6 +245,41 @@ def cmd_docs_check_ru(args, cfg: paths.Config) -> int:
     if not failures:
         print(t("docs_ru_ok", count=checked))
     return 1 if failures else 0
+
+
+def cmd_docs_check(args, cfg: paths.Config) -> int:
+    from vic3tools import docs_lint
+
+    res = docs_lint.check(args.repo, fix=args.fix)
+    if args.json:
+        _emit_json({"checked": res.checked, "fixed": res.fixed, "known": res.known,
+                    "findings": [f.__dict__ | {"key": f.key} for f in res.findings]})
+        return 1 if res.failures else 0
+    by_repo: dict[str, list] = {}
+    for f in res.findings:
+        by_repo.setdefault(f.repo, []).append(f)
+    for repo, n in res.checked.items():
+        fs = by_repo.get(repo, [])
+        bad = [f for f in fs if not f.note]
+        notes = [f for f in fs if f.note]
+        print(t("dc_repo", repo=repo, docs=n, bad=len(bad), notes=len(notes)))
+        for f in bad:
+            print("  " + t(f"dc_{f.code}", file=f.file, arg=f.arg, **f.detail))
+        if notes and args.notes:
+            print("  " + t("dc_notes"))
+            for f in notes:
+                mark = " " + t("dc_known_mark") if f.detail.get("known") else ""
+                print("    " + t(f"dc_{f.code}", file=f.file, arg=f.arg, **f.detail) + mark)
+        elif notes:
+            kinds: dict[str, int] = {}
+            for f in notes:
+                kinds["known" if f.detail.get("known") else f.code] = kinds.get(
+                    "known" if f.detail.get("known") else f.code, 0) + 1
+            print("  " + t("dc_notes_count", list=", ".join(f"{t('dc_kind_' + k)} {v}" for k, v in kinds.items())))
+    if args.fix:
+        print(t("dc_fixed", count=res.fixed))
+    print(t("dc_ok") if not res.failures else t("dc_total", count=len(res.failures)))
+    return 1 if res.failures else 0
 
 
 if __name__ == "__main__":

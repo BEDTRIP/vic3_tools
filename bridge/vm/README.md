@@ -1,3 +1,10 @@
+---
+type: code
+description: "The sandbox VM: game runs in a Hyper-V VM on the same PC — what is in it, how mods and settings get there, how the bridge drives it"
+project: vic3
+tags: [sandbox, bridge]
+paths: ["bridge/vm"]
+---
 # The sandbox VM
 
 Test runs of the game in a Hyper-V virtual machine on the same PC, so a run does not take the screen, mouse and

@@ -1,3 +1,10 @@
+---
+type: code
+description: "Profiler View: a helper mod replacing the script profiler window so a run's measurements are readable from a screenshot"
+project: vic3
+tags: [sandbox, profile]
+paths: ["mods/profiler_view"]
+---
 # Profiler View — the script profiler window for measurements
 
 A helper mod for measuring runs only (not for play). It replaces the window of the built-in script profiler,

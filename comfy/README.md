@@ -1,3 +1,10 @@
+---
+type: code
+description: "comfy: Victoria 3 graphics in ComfyUI — install of the v3 nodes, workflows behind v3 gfx gen"
+project: vic3
+tags: [gfx]
+paths: ["comfy"]
+---
 # comfy — Victoria 3 graphics in ComfyUI
 
 ## Install (once, ComfyUI Desktop)

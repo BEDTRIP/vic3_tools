@@ -1,3 +1,9 @@
+---
+type: reference
+description: "Using v3: every command with its options and examples — finding, GUI, checks, saves and logs, releases, pictures, the sandbox"
+project: vic3
+tags: [v3]
+---
 # Using `v3`
 
 `v3` is one command for all the tools. Every subcommand has `--help`; output is short by default and `--json`
@@ -39,6 +45,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 doctor` | what is ready and what is not; exit code 1 if something is missing |
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
+| `v3 docs check` | a project's documents by the documentation methodology: headers, links, mentions as text (`--fix` makes them links), `paths`, code; from a node — every repo of the vault |
 | `v3 hook session-start` | the plugin's hook at a session's start: the agent gets a short menu of what `v3` can do and whether its folder is in the set — no section in a project's `CLAUDE.md` needed |
 | `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
 | `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
@@ -406,3 +413,28 @@ English version it was made from:
 The hash is git's blob hash of the English file (`git hash-object docs/usage.md`). `v3 docs check-ru` reports a
 translation whose source has changed since, and documents with no translation yet (a note, not a failure). After
 updating a translation, put the new hash in its first line.
+
+## Checking a project's documents: `v3 docs check`
+
+For a project whose documents follow the documentation methodology (headers, Obsidian links, concepts, decisions,
+phases, history). One core for every repo; each repo describes its layout in `docs-check.toml` at its root:
+
+```toml
+name = "mymod"
+project = "myproject"            # the header's project, one for all repos
+node = "myproject"               # the repo sits in a node: links out of it are the node's to check
+docs = ["docs/**", "README.md"]  # what is a document (default: every .md)
+exclude = ["docs/ru/**"]
+history = ["docs/история/**"]    # only links and anchors are checked there
+map = "docs/понятия/_Карта.md"   # every concept on it
+code_roots = ["common/", "gui/"] # paths in backticks in docs/ exist (code_roots_in — which documents)
+cover = ["common/**"]            # code that no document's paths covers (cover_strict = true — a failure)
+code_ext = [".txt", ".py"]       # code comments: decision numbers (code_decision — a regex) and paths to documents
+extra = ["python tools/my_rule.py"]  # a repo's own rule, run after the core
+```
+
+A node — the folder above the clones, the Obsidian vault — lists them: `members = ["mymod", "tools"]`
+(`vault_skip` — folders not in the vault). Run from the node, the whole vault is checked and links between repos resolve
+as Obsidian resolves them; run in a member inside the node, only its documents; run in a repo alone (its CI), a link
+that leads out of it is a note. `docs-check-known.txt` beside the config lists findings accepted for now
+(`<file>: <code> <what>`, `#` — why); they are notes. `--notes` lists the notes, `--json` — everything.

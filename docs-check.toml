@@ -1,0 +1,13 @@
+# Documents of vic3_tools: v3 docs check (Д.ДОК.6 — layout and headers by the methodology, in English).
+# README.md and claude-plugin/README.md are product pages on GitHub, docs/ru — translations (v3 docs check-ru),
+# skills are not documents. The documents are read on GitHub too: Markdown links to them are allowed.
+name = "vic3_tools"
+project = "vic3"
+node = "vic3"
+docs = ["docs/**", "bridge/vm/README.md", "comfy/README.md", "mods/profiler_view/README.md"]
+exclude = ["docs/ru/**"]
+history = ["docs/benchmarks/**"]
+md_links = true
+# mentions as text stay text here: a link for GitHub would be a Markdown one, the fix writes Obsidian links
+mentions = false
+code_ext = [".py"]
