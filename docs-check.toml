@@ -11,3 +11,5 @@ md_links = true
 # mentions as text stay text here: a link for GitHub would be a Markdown one, the fix writes Obsidian links
 mentions = false
 code_ext = [".py"]
+# tests build documents of their own: their paths are test data
+code_exclude = ["tests/**"]
