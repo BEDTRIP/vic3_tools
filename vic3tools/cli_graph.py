@@ -8,7 +8,7 @@ from pathlib import Path
 from vic3tools import graph
 from vic3tools.i18n import t
 
-LAYERS = ("terms", "objects", "mods")
+LAYERS = ("terms", "engine", "objects", "mods")
 
 
 def add_parsers(sub) -> None:

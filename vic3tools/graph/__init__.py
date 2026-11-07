@@ -6,6 +6,8 @@ The layout is ``graph.toml`` at the root of the documents repo::
     version = "1.13"                       # game version of the snapshot, written into notes
     avoid = ["../../docs"]                 # folders whose note names generated names must not repeat
     paths_root = ".."                      # ``paths`` of the notes are relative to it (as docs-check.toml has it)
+    dump = "C:/…/Victoria 3/docs"          # engine: the script_docs dump to copy (optional), and its date
+    dump_date = "2026-10-13"
     [sources.vanilla]
     snapshot = "../.vanillaVIC3"           # the source's files, relative to graph.toml
     label = "ваниль"
@@ -39,6 +41,8 @@ class Config:
     sources: dict[str, Source]
     avoid: list[Path] = field(default_factory=list)
     paths_root: Path = Path()  # what ``paths`` of the notes are relative to (the snapshot's repo)
+    dump: Path | None = None  # the game's docs folder with the script_docs dump, copied by ``engine``
+    dump_date: str = ""
 
     @property
     def vanilla(self) -> Source:
@@ -67,7 +71,8 @@ def load(start: Path) -> Config:
     srcs = {name: Source(name, (root / s["snapshot"]).resolve(), s.get("label", name))
             for name, s in data.get("sources", {}).items()}
     return Config(root, str(data.get("version", "")), srcs, [(root / a).resolve() for a in data.get("avoid", [])],
-                  (root / data.get("paths_root", ".")).resolve())
+                  (root / data.get("paths_root", ".")).resolve(), Path(data["dump"]) if data.get("dump") else None,
+                  str(data.get("dump_date", "")))
 
 
 @dataclass

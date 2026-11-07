@@ -300,12 +300,12 @@ class ModLayer:
 
 
 def build(src_name: str, label: str, version: str, mod_root: Path, van_root: Path, van_layer, snap_rel: str,
-          taken: set[str], dst: Path) -> ModLayer:
+          taken: set[str], dst: Path, modifier_links: dict[str, str] | None = None) -> ModLayer:
     van_recs, _van_names, van_cnames = van_layer
     mod_recs = objects.all_records(mod_root)
     names = objects.Names([mod_root, van_root])
     cnames = objects.card_names(mod_recs, names, taken)
-    linker = objects.Linker([(src_name, mod_recs, cnames), ("vanilla", van_recs, van_cnames)])
+    linker = objects.Linker([(src_name, mod_recs, cnames), ("vanilla", van_recs, van_cnames)], modifier_links)
     cards = objects.build_cards(src_name, mod_recs, cnames, linker)
     for c in cards:
         r = c.rec

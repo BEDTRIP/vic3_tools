@@ -174,7 +174,7 @@ class Names:
         s = re.sub(r"#\w+(;\w+)*\s?|#!|@\w+!", "", s)
         s = re.sub(r"\[[^\]]*\]", "", s)
         s = BAD_NAME.sub("", s).replace("\\n", " ")
-        return re.sub(r"\s+", " ", s).strip(" .")
+        return re.sub(r"\s+", " ", s).strip(" .").lstrip("-–—•· ")
 
 
 def card_names(recs: dict[str, dict[str, Record]], names: Names, taken: set[str] = frozenset()
@@ -219,9 +219,11 @@ def is_data(body: str, depth: int = 0) -> bool:
 class Linker:
     """Wiki links to records: the mod's own card where it has one, else the base source's."""
 
-    def __init__(self, layers: list[tuple[str, dict[str, dict[str, Record]], dict]]):
+    def __init__(self, layers: list[tuple[str, dict[str, dict[str, Record]], dict]],
+                 modifiers: dict[str, str] | None = None):
         # layers: (source name, records it has cards for, card names), the first one wins
         self.layers = layers
+        self.modifiers = modifiers or {}  # modifier type -> link target in the engine reference
         self.by_key: dict[str, set[str]] = {}
         for _s, recs, _n in layers:
             for tid, rs in recs.items():
@@ -293,7 +295,10 @@ class Fields:
                     out.append(f"{pad}- **{k}**: {self._ref(v, k)}")
                 else:
                     role = top if re.fullmatch(r"-?[\d.]+", v) else f"{top}: {v}"
-                    out.append(f"{pad}- {self._ref(k, top, role=role)} = {self._ref(v, k)}" + self._modifier(k))
+                    head = self._ref(k, top, role=role)
+                    if head == f"`{k}`" and k in self.linker.modifiers:
+                        head = f"[[{self.linker.modifiers[k]}|{k}]]"
+                    out.append(f"{pad}- {head} = {self._ref(v, k)}" + self._modifier(k))
                 continue
             inner = body[o + 1:c]
             name = f"**{k}**" if k else "блок"
