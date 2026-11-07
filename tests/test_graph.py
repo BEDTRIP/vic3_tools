@@ -1,0 +1,64 @@
+"""v3 graph on a tiny snapshot: cards, links, backlinks, hand sections, terms."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from vic3tools import graph
+from vic3tools.graph import run
+
+
+def _w(p: Path, text: str, bom: bool = True) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes((b"\xef\xbb\xbf" if bom else b"") + text.encode("utf-8"))
+
+
+def _setup(tmp_path: Path) -> graph.Config:
+    van = tmp_path / "out" / "van"
+    _w(van / "common/buildings/b.txt", "building_bakery = {\n\tproduction_method_groups = { pmg_bread }\n"
+       "\tunlocking_technologies = { baking }\n\tis_visible = { always = yes }\n}\n")
+    _w(van / "common/production_method_groups/g.txt", "pmg_bread = { production_methods = { pm_bread } }\n")
+    _w(van / "common/production_methods/p.txt", "pm_bread = {\n\tbuilding_modifiers = { workforce_scaled = {\n"
+       "\t\tgoods_input_grain_add = 10\n\t\tgoods_output_bread_add = 20\n\t} }\n}\n")
+    _w(van / "common/goods/g.txt", "grain = { cost = 20 }\nbread = { cost = 30 }\n")
+    _w(van / "common/technology/technologies/t.txt", "baking = { era = era_1 }\n")
+    _w(van / "common/game_concepts/c.txt", "concept_bread = { texture = x }\n")
+    _w(van / "localization/russian/a_l_russian.yml", 'l_russian:\n building_bakery:0 "Пекарня"\n grain:0 "Зерно"\n'
+       ' bread:0 "Хлеб"\n concept_bread:0 "Хлеб"\n concept_bread_desc:0 "Еда из [grain|l]."\n')
+    _w(van / "localization/english/a_l_english.yml", 'l_english:\n building_bakery:0 "Bakery"\n')
+    docs = tmp_path / "out" / "docs"
+    _w(docs / "graph.toml", 'version = "1.13"\npaths_root = ".."\n[sources.vanilla]\nsnapshot = "../van"\n'
+       'label = "ваниль"\n', bom=False)
+    return graph.load(docs)
+
+
+def test_objects_cards_and_links(tmp_path):
+    cfg = _setup(tmp_path)
+    run.run_terms(cfg, False)
+    s, n = run.run_objects(cfg, False)
+    assert n["cards"] == 6 and not s.stale
+    v = cfg.root / "vanilla"
+    bakery = (v / "Здания/Пекарня.md").read_text(encoding="utf-8")
+    assert "paths: [van/common/buildings/b.txt]" in bakery
+    assert "[[vanilla/Технологии/baking|baking]]" in bakery
+    assert "- **is_visible**: скрипт, строки 4–4" in bakery
+    pm = (v / "Методы производства/pm_bread.md").read_text(encoding="utf-8")
+    assert "`goods_input_grain_add` = `10` → [[vanilla/Товары/Зерно|Зерно]]" in pm
+    # the good's name is a term's name too: the card gets its type
+    bread = (v / "Товары/Хлеб (товар).md").read_text(encoding="utf-8")
+    assert "- **Методы производства** (выход): [[vanilla/Методы производства/pm_bread|pm_bread]]" in bread
+    tech = (v / "Технологии/baking.md").read_text(encoding="utf-8")
+    assert "(открывает): [[vanilla/Здания/Пекарня|Пекарня]]" in tech
+
+
+def test_hand_section_kept_and_check(tmp_path):
+    cfg = _setup(tmp_path)
+    run.run_objects(cfg, False)
+    card = cfg.root / "vanilla/Здания/Пекарня.md"
+    card.write_text(card.read_text(encoding="utf-8") + "\n## Зачем в механике\n\nруками\n", encoding="utf-8")
+    s, _ = run.run_objects(cfg, True)
+    assert s.changed == ["Здания/Пекарня.md"]  # the hand section is appended after the generated text
+    run.run_objects(cfg, False)
+    assert card.read_text(encoding="utf-8").endswith("## Зачем в механике\n\nруками\n")
+    s, _ = run.run_objects(cfg, True)
+    assert not s.changed and not s.stale
