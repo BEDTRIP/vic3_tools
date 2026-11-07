@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from vic3tools.graph import Config, Sync, objects, sync, terms
+from vic3tools.graph import Config, Sync, mods, objects, sync, terms
 
 
 def run_terms(cfg: Config, check: bool) -> tuple[Sync, dict]:
@@ -12,13 +12,17 @@ def run_terms(cfg: Config, check: bool) -> tuple[Sync, dict]:
     return sync(dst, out, check), counts
 
 
+def taken_names(cfg: Config) -> set[str]:
+    """Names generated cards must not repeat (lower case): the ``avoid`` notes and vanilla's terms."""
+    term_names = {f.stem.lower() for f in (cfg.root / cfg.vanilla.name / "Термины").glob("*.md")}
+    return {n.lower() for n in cfg.avoid_names()} | term_names
+
+
 def vanilla_layer(cfg: Config):
     van = cfg.vanilla
     recs = objects.all_records(van.snapshot)
     names = objects.Names([van.snapshot])
-    term_names = {f.stem.lower() for f in (cfg.root / van.name / "Термины").glob("*.md")}
-    taken = {n.lower() for n in cfg.avoid_names()} | term_names
-    return recs, names, objects.card_names(recs, names, taken)
+    return recs, names, objects.card_names(recs, names, taken_names(cfg))
 
 
 def run_objects(cfg: Config, check: bool) -> tuple[Sync, dict]:
@@ -31,3 +35,20 @@ def run_objects(cfg: Config, check: bool) -> tuple[Sync, dict]:
                         names, linker, [], dst)
     scope = tuple(t.out.split("/")[0] + "/" for t in objects.TYPES)
     return sync(dst, out, check, scope), {"cards": len(cards)}
+
+
+def run_mods(cfg: Config, check: bool, only: list[str] | None = None) -> list[tuple[str, Sync, dict]]:
+    """Every source but vanilla (or ``only`` those): what it changes in vanilla, cards of its records."""
+    van = cfg.vanilla
+    layer = vanilla_layer(cfg)
+    taken = taken_names(cfg)
+    scope = (*(t.out.split("/")[0] + "/" for t in objects.TYPES), "Что меняет в ванили")
+    out = []
+    for name, src in cfg.sources.items():
+        if name == van.name or (only and name not in only):
+            continue
+        dst = cfg.root / name
+        ml = mods.build(name, src.label, cfg.version, src.snapshot, van.snapshot, layer,
+                        objects.snapshot_rel(src.snapshot, cfg.paths_root), taken, dst)
+        out.append((name, sync(dst, ml.notes, check, scope), ml.counts))
+    return out

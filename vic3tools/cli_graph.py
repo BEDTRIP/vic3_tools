@@ -8,7 +8,7 @@ from pathlib import Path
 from vic3tools import graph
 from vic3tools.i18n import t
 
-LAYERS = ("terms", "objects")
+LAYERS = ("terms", "objects", "mods")
 
 
 def add_parsers(sub) -> None:
@@ -17,6 +17,7 @@ def add_parsers(sub) -> None:
                        description=graph.__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("layer", choices=(*LAYERS, "all"), help="which layer (all — every one, in this order)")
     p.add_argument("--repo", type=Path, default=Path.cwd(), help="a folder in the documents repo (default: current)")
+    p.add_argument("--source", action="append", help="mods: only these sources (repeatable; default: all mods)")
     p.add_argument("--check", action="store_true", help="only compare; exit code 1 when notes differ")
     p.set_defaults(func=cmd_graph)
 
@@ -27,7 +28,10 @@ def cmd_graph(args, cfg) -> int:
     g = graph.load(args.repo)
     dirty = False
     for layer in LAYERS if args.layer == "all" else (args.layer,):
-        results = [(g.vanilla.name, *getattr(run, f"run_{layer}")(g, args.check))]
+        if layer == "mods":
+            results = run.run_mods(g, args.check, args.source)
+        else:
+            results = [(g.vanilla.name, *getattr(run, f"run_{layer}")(g, args.check))]
         for src, s, counts in results:
             dirty |= bool(s.changed or s.stale)
             info = ", ".join(f"{k} {v}" for k, v in counts.items())

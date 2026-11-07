@@ -62,3 +62,25 @@ def test_hand_section_kept_and_check(tmp_path):
     assert card.read_text(encoding="utf-8").endswith("## Зачем в механике\n\nруками\n")
     s, _ = run.run_objects(cfg, True)
     assert not s.changed and not s.stale
+
+
+def test_mod_layer(tmp_path):
+    cfg = _setup(tmp_path)
+    mod = tmp_path / "out" / "mod"
+    _w(mod / "common/buildings/zz_mod.txt", "REPLACE:building_bakery = {\n\tproduction_method_groups = { pmg_bread }\n"
+       "\tlevels_per_mesh = 5\n}\nbuilding_mill = { production_method_groups = { pmg_bread } }\n")
+    _w(mod / "common/scripted_effects/x.txt", "my_effect = { }\n")
+    _w(mod / "common/on_actions/x.txt", "on_monthly_pulse = { on_actions = { my_hook } }\n")
+    _w(cfg.root / "graph.toml", (cfg.root / "graph.toml").read_text(encoding="utf-8")
+       + '[sources.mod]\nsnapshot = "../mod"\nlabel = "Мод"\n', bom=False)
+    cfg = graph.load(cfg.root)
+    run.run_objects(cfg, False)
+    (name, s, n), = run.run_mods(cfg, False)
+    assert name == "mod" and n["cards"] == 2
+    d = cfg.root / "mod"
+    bakery = (d / "Здания/Пекарня.md").read_text(encoding="utf-8")
+    assert 'replaces: "[[vanilla/Здания/Пекарня]]"' in bakery
+    assert "- **levels_per_mesh**: добавлено" in bakery and "- **unlocking_technologies**: убрано" in bakery
+    ref = (d / "Что меняет в ванили — Мод.md").read_text(encoding="utf-8")
+    assert "| `buildings` | 1 | 1 | 0 | 0 | 0 | 0 | 0 |" in ref
+    assert "- **добавляет** (1): [[mod/Здания/building_mill|building_mill]]" in ref

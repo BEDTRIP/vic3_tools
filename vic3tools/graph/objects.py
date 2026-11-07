@@ -137,6 +137,16 @@ def all_records(root: Path) -> dict[str, dict[str, Record]]:
     return {t.id: records(root, t) for t in TYPES}
 
 
+_LOC: dict[tuple[Path, str], dict] = {}
+
+
+def read_language(root: Path, lang: str) -> dict:
+    """Localization of a source in one language, read once per run (vanilla is read for every mod)."""
+    if (root, lang) not in _LOC:
+        _LOC[(root, lang)] = locmod.read_language(root / "localization", lang)
+    return _LOC[(root, lang)]
+
+
 # --- names -----------------------------------------------------------------------------------------------------------
 
 
@@ -148,7 +158,7 @@ class Names:
         self.en: dict[str, str] = {}
         for r in roots:
             for lang, d in (("russian", self.ru), ("english", self.en)):
-                for k, e in locmod.read_language(r / "localization", lang).items():
+                for k, e in read_language(r, lang).items():
                     d.setdefault(k, e.text)
 
     def text(self, key: str) -> str:
@@ -175,10 +185,10 @@ def card_names(recs: dict[str, dict[str, Record]], names: Names, taken: set[str]
     for tid, rs in recs.items():
         by_name: dict[str, list[str]] = {}
         for k in rs:
-            n = (names.text(k) or k)[:100]
+            n = (names.text(k) or BAD_NAME.sub("", k))[:100]
             by_name.setdefault(n.lower(), []).append(k)
         for k in rs:
-            n = (names.text(k) or k)[:100]
+            n = (names.text(k) or BAD_NAME.sub("", k))[:100]
             if len(by_name[n.lower()]) > 1 and n != k:
                 n = f"{n} ({k})"
             elif n.lower() in taken:
