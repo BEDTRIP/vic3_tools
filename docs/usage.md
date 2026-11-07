@@ -441,8 +441,9 @@ that leads out of it is a note. `docs-check-known.txt` beside the config lists f
 (`<file>: <code> <what>`, `#` — why); they are notes. `--notes` lists the notes, `--json` — everything.
 
 A note with `audience: agent` is for the agent only: no orphan or concept-section checks on it, and a link into it
-from a person's document is a finding (`link_to_agent`; in history — a note): put what is needed in words, or as a
-path in `code` — `--fix` leaves such a path as it is.
+from the text of a person's document is a finding (`link_to_agent`; in history — a note): put what is needed in
+words, or as a path in `code` — `--fix` leaves such a path as it is. Links in the header (`uses`, `replaces`,
+`decisions`…) are allowed: they give the agent's note its backlinks.
 
 ## The sources' documentation graph: `v3 graph`
 

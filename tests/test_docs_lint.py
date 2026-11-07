@@ -107,6 +107,7 @@ def test_agent_notes(tmp_path):
     doc(mod / "docs" / "агенту" / "Выписка.md", "reference", extra="audience: agent\n")  # nobody links: no orphan
     doc(mod / "docs" / "агенту" / "Разбор.md", "reference", "# R\n\n[[Выписка]]\n", "audience: agent\n")
     doc(mod / "docs" / "код" / "c.md", "code", "# C\n\n[[Разбор]]\n", 'paths: ["common/a.txt"]\n')
+    doc(mod / "docs" / "код" / "d.md", "code", "# D\n", 'paths: ["common/a.txt"]\nuses: ["[[Разбор]]"]\n')  # header: ok
     write(mod / "docs" / "история" / "old.md", "[[Разбор]]\n")
     res = docs_lint.check(node)
     assert codes(res) == [("docs/код/c.md", "link_to_agent")]

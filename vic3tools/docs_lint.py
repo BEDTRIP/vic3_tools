@@ -406,8 +406,9 @@ class Checker:
             elif path and not (self.v.files[key].parent / path).exists() \
                     and (path.startswith(("./", "../")) or not self.v.resolve(path)):  # a relative path — from here
                 self.add(repo, rel, "md_link_nowhere", m.group(0))
-        for target, anchor in LINK.findall(body + "\n" + fm_text):
-            self._link(repo, rel, key, target.replace("\\", "").strip(), anchor)
+        for part, header in ((body, False), (fm_text, True)):
+            for target, anchor in LINK.findall(part):
+                self._link(repo, rel, key, target.replace("\\", "").strip(), anchor, header)
         if hist or not fm:
             return
         self._mentions(repo, rel, key, text, body_all, off, raw)
@@ -417,7 +418,7 @@ class Checker:
         """A note only for the agent (``audience: agent``): hidden from a person, no orphan or concept checks."""
         return str(self.fm.get(key, {}).get("audience", "")).strip("'\"") == "agent"
 
-    def _link(self, repo: Repo, rel: str, key: str, target: str, anchor: str) -> None:
+    def _link(self, repo: Repo, rel: str, key: str, target: str, anchor: str, header: bool = False) -> None:
         hit = self.v.pick(self.v.resolve(target), key) if target else [key]
         if not hit:
             if self.standalone and repo.get("node"):
@@ -428,8 +429,9 @@ class Checker:
         top = self.v.pick(hit, "")
         if len(hit) > 1 and (hit[0] != top[0] or len(top[0]) == len(top[1])):
             self.add(repo, rel, "link_ambiguous", target, cands=", ".join(_orig_case(self.v, h) for h in hit[:4]))
-        if self.agent(hit[0]) and not self.agent(key) and hit[0] != key:
-            # a person's document does not lead into an agent's note: what is needed goes in as words or a path
+        if self.agent(hit[0]) and not self.agent(key) and hit[0] != key and not header:
+            # a person's text does not lead into an agent's note (a click lands where it is not for him): words or a
+            # path; links of the header (uses, replaces, decisions…) are for the agent and the check — allowed
             hist = matches(rel, repo.globs("history", ["docs/история/**"]))
             self.add(repo, rel, "link_to_agent", target, note=hist)
         if anchor and hit[0].endswith(".md"):
