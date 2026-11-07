@@ -440,6 +440,10 @@ as Obsidian resolves them; run in a member inside the node, only its documents; 
 that leads out of it is a note. `docs-check-known.txt` beside the config lists findings accepted for now
 (`<file>: <code> <what>`, `#` — why); they are notes. `--notes` lists the notes, `--json` — everything.
 
+A note with `audience: agent` is for the agent only: no orphan or concept-section checks on it, and a link into it
+from a person's document is a finding (`link_to_agent`; in history — a note): put what is needed in words, or as a
+path in `code` — `--fix` leaves such a path as it is.
+
 ## The sources' documentation graph: `v3 graph`
 
 Generated notes about the sources a project stands on — the game and other people's mods — for an Obsidian vault.
@@ -451,6 +455,7 @@ paths_root = ".."                    # notes' `paths` are relative to it (the sn
 avoid = ["../../docs"]               # note names the generated ones must not repeat
 dump = "C:/…/Victoria 3/docs"        # engine: the script_docs dump to copy, and its date
 dump_date = "2026-10-13"
+audience = "agent"                  # into every header: the notes are for the agent, hidden from a person
 [sources.vanilla]                    # required: the base everything is compared with
 snapshot = "../.vanillaVIC3"
 label = "ваниль"

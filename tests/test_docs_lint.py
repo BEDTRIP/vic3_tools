@@ -98,3 +98,18 @@ def test_globs():
     assert docs_lint.matches("common/history/a/b.txt", ["common/history/*"])
     assert not docs_lint.matches("gui/a.gui", ["common/**"])
     assert docs_lint.matches("README.md", ["**/*.md"])
+
+
+def test_agent_notes(tmp_path):
+    """audience: agent — no orphan; a person's document leading there is a finding (in history — a note)."""
+    node = vault(tmp_path)
+    mod = node / "mod"
+    doc(mod / "docs" / "агенту" / "Выписка.md", "reference", extra="audience: agent\n")  # nobody links: no orphan
+    doc(mod / "docs" / "агенту" / "Разбор.md", "reference", "# R\n\n[[Выписка]]\n", "audience: agent\n")
+    doc(mod / "docs" / "код" / "c.md", "code", "# C\n\n[[Разбор]]\n", 'paths: ["common/a.txt"]\n')
+    write(mod / "docs" / "история" / "old.md", "[[Разбор]]\n")
+    res = docs_lint.check(node)
+    assert codes(res) == [("docs/код/c.md", "link_to_agent")]
+    notes = [(f.file, f.code) for f in res.findings if f.note]
+    assert ("docs/история/old.md", "link_to_agent") in notes
+    assert not any(c == "orphan" and "агенту" in f for f, c in notes)

@@ -90,3 +90,16 @@ def test_mod_layer(tmp_path):
     assert n["terms"] == 1
     loaf = (d / "Термины/Буханка.md").read_text(encoding="utf-8")
     assert "Форма [[vanilla/Термины/Хлеб|хлеб]]." in loaf and "source: mod" in loaf
+
+
+def test_audience_in_every_header(tmp_path):
+    cfg = _setup(tmp_path)
+    toml = cfg.root / "graph.toml"
+    text = toml.read_text(encoding="utf-8").replace('paths_root = ".."', 'paths_root = ".."\naudience = "agent"')
+    toml.write_text(text, encoding="utf-8")
+    cfg = graph.load(cfg.root)
+    run.run_terms(cfg, False)
+    run.run_objects(cfg, False)
+    for f in (cfg.root / "vanilla").rglob("*.md"):
+        head = f.read_text(encoding="utf-8").split("\n---\n", 1)[0]
+        assert "\nproject: vic3\naudience: agent\n" in head, f

@@ -11,7 +11,7 @@ def run_terms(cfg: Config, check: bool) -> tuple[Sync, dict]:
     van = cfg.vanilla
     dst = cfg.root / van.name / "Термины"
     out, counts = terms.build(van.snapshot, dst, cfg.avoid_names(), version=cfg.version)
-    return sync(dst, out, check), counts
+    return sync(dst, out, check, audience=cfg.audience), counts
 
 
 def engine_dir(cfg: Config) -> Path:
@@ -25,7 +25,8 @@ def run_engine(cfg: Config, check: bool) -> tuple[Sync, dict]:
     if cfg.dump and cfg.dump.is_dir() and not check:
         copied = engine.copy_raw(cfg.dump, raw)
     out, counts = engine.notes(raw, cfg.vanilla.name, cfg.version, cfg.dump_date)
-    s = sync(engine_dir(cfg), out, check, tuple(f"{k.title}" for k in engine.KINDS) + ("_Карта движка",))
+    s = sync(engine_dir(cfg), out, check, tuple(f"{k.title}" for k in engine.KINDS) + ("_Карта движка",),
+             cfg.audience)
     return s, counts | {"copied": len(copied)}
 
 
@@ -55,7 +56,7 @@ def run_objects(cfg: Config, check: bool) -> tuple[Sync, dict]:
     out = objects.notes(cards, van.name, van.label, cfg.version, objects.snapshot_rel(van.snapshot, cfg.paths_root),
                         names, linker, [], dst)
     scope = tuple(t.out.split("/")[0] + "/" for t in objects.TYPES)
-    return sync(dst, out, check, scope), {"cards": len(cards)}
+    return sync(dst, out, check, scope, cfg.audience), {"cards": len(cards)}
 
 
 def run_mods(cfg: Config, check: bool, only: list[str] | None = None) -> list[tuple[str, Sync, dict]]:
@@ -78,5 +79,5 @@ def run_mods(cfg: Config, check: bool, only: list[str] | None = None) -> list[tu
         tn, tc = terms.build_mod(src.snapshot, van.snapshot, dst / "Термины", avoid_terms, name, src.label,
                                  cfg.version, van_terms)
         ml.notes.update({f"Термины/{k}": v for k, v in tn.items()})
-        out.append((name, sync(dst, ml.notes, check, scope), ml.counts | tc))
+        out.append((name, sync(dst, ml.notes, check, scope, cfg.audience), ml.counts | tc))
     return out

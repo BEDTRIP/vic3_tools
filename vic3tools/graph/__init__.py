@@ -8,6 +8,8 @@ The layout is ``graph.toml`` at the root of the documents repo::
     paths_root = ".."                      # ``paths`` of the notes are relative to it (as docs-check.toml has it)
     dump = "C:/…/Victoria 3/docs"          # engine: the script_docs dump to copy (optional), and its date
     dump_date = "2026-10-13"
+    audience = "agent"                     # into every note's header: who the notes are for (methodology,
+                                           # «Шапка документа»); none — for a person
     [sources.vanilla]
     snapshot = "../.vanillaVIC3"           # the source's files, relative to graph.toml
     label = "ваниль"
@@ -43,6 +45,7 @@ class Config:
     paths_root: Path = Path()  # what ``paths`` of the notes are relative to (the snapshot's repo)
     dump: Path | None = None  # the game's docs folder with the script_docs dump, copied by ``engine``
     dump_date: str = ""
+    audience: str = ""
 
     @property
     def vanilla(self) -> Source:
@@ -72,7 +75,7 @@ def load(start: Path) -> Config:
             for name, s in data.get("sources", {}).items()}
     return Config(root, str(data.get("version", "")), srcs, [(root / a).resolve() for a in data.get("avoid", [])],
                   (root / data.get("paths_root", ".")).resolve(), Path(data["dump"]) if data.get("dump") else None,
-                  str(data.get("dump_date", "")))
+                  str(data.get("dump_date", "")), str(data.get("audience", "")))
 
 
 @dataclass
@@ -81,9 +84,22 @@ class Sync:
     stale: list[str]
 
 
-def sync(dst: Path, notes: dict[str, str], check: bool, scope: tuple[str, ...] = ()) -> Sync:
+def with_audience(text: str, audience: str) -> str:
+    """``audience: <who>`` into the note's header, right after ``project:`` (or the header's first line)."""
+    if not audience or not text.startswith("---\n"):
+        return text
+    end = text.find("\n---\n", 3)
+    head = text[4:end].split("\n")
+    at = next((i + 1 for i, line in enumerate(head) if line.startswith("project:")), 1)
+    head.insert(at, f"audience: {audience}")
+    return "---\n" + "\n".join(head) + text[end:]
+
+
+def sync(dst: Path, notes: dict[str, str], check: bool, scope: tuple[str, ...] = (), audience: str = "") -> Sync:
     """Make ``dst`` hold exactly ``notes`` (relative path -> text): ``.md`` files not in ``notes`` are stale and
-    removed — only under ``scope`` (relative folder prefixes the layer owns) when it is given."""
+    removed — only under ``scope`` (relative folder prefixes the layer owns) when it is given. ``audience`` goes into
+    every header."""
+    notes = {k: with_audience(v, audience) for k, v in notes.items()}
     have = set()
     if dst.is_dir():
         for dp, _dn, fn in os.walk(dst):

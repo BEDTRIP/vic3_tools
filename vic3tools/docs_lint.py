@@ -413,6 +413,10 @@ class Checker:
         self._mentions(repo, rel, key, text, body_all, off, raw)
         self._code_refs(repo, rel, body_all)
 
+    def agent(self, key: str) -> bool:
+        """A note only for the agent (``audience: agent``): hidden from a person, no orphan or concept checks."""
+        return str(self.fm.get(key, {}).get("audience", "")).strip("'\"") == "agent"
+
     def _link(self, repo: Repo, rel: str, key: str, target: str, anchor: str) -> None:
         hit = self.v.pick(self.v.resolve(target), key) if target else [key]
         if not hit:
@@ -424,6 +428,10 @@ class Checker:
         top = self.v.pick(hit, "")
         if len(hit) > 1 and (hit[0] != top[0] or len(top[0]) == len(top[1])):
             self.add(repo, rel, "link_ambiguous", target, cands=", ".join(_orig_case(self.v, h) for h in hit[:4]))
+        if self.agent(hit[0]) and not self.agent(key) and hit[0] != key:
+            # a person's document does not lead into an agent's note: what is needed goes in as words or a path
+            hist = matches(rel, repo.globs("history", ["docs/история/**"]))
+            self.add(repo, rel, "link_to_agent", target, note=hist)
         if anchor and hit[0].endswith(".md"):
             heads, blocks = self.v.anchors(hit[0])
             a = anchor.split("#")[-1].strip()
@@ -458,7 +466,7 @@ class Checker:
             self.add(repo, rel, "status", fm["status"], type=t)
         if t == "history" and fm.get("kind") and fm["kind"] not in KINDS:
             self.add(repo, rel, "kind", fm["kind"])
-        if t == "concept" and key in self.concepts.get(repo.name, {}).values():
+        if t == "concept" and key in self.concepts.get(repo.name, {}).values() and not self.agent(key):
             core = repo.globs("concept_core", ["Суть"])
             if fm.get("tags") and any(x in listval(fm["tags"]) for x in repo.globs("concept_no_core_tags", [])):
                 core = []
@@ -565,7 +573,7 @@ class Checker:
             p = m.group(1).lstrip("./")
             cands = [(repo.prefix + p).lower(), p.lower()]
             k = next((c for c in cands if c in self.v.docs), None)
-            if "/" in p and k and k != key:
+            if "/" in p and k and k != key and not self.agent(k):  # an agent's note stays a path
                 a, b = m.span()
                 if any(s <= a and b <= e and (e - s) > (b - a) for s, e in spans):
                     continue
@@ -670,7 +678,7 @@ class Checker:
         # notes: orphans, one name for two documents
         for k, rel in mine.items():
             if matches(rel, hist) or k in self.incoming or Path(rel).name.lower() == "readme.md" \
-                    or (mp and rel == mp) or self.fm.get(k, {}).get("generated"):
+                    or (mp and rel == mp) or self.fm.get(k, {}).get("generated") or self.agent(k):
                 continue
             self.add(repo, rel, "orphan", note=True)
         seen: dict[str, list[str]] = {}
