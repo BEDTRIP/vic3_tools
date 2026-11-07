@@ -46,6 +46,7 @@ The tools' home also holds the cache (`cache/`) and installed programs (`bin/`, 
 | `v3 glossary <text>` | the game's own name for a term in English and Russian (`--all-langs` — all eleven), from the game's localization; also the tools' own terms |
 | `v3 docs check-ru` | in this repo: are the Russian translations in `docs/ru/` current |
 | `v3 docs check` | a project's documents by the documentation methodology: headers, links, mentions as text (`--fix` makes them links), `paths`, code; from a node — every repo of the vault |
+| `v3 graph terms / engine / objects / mods / all` | generate the documentation graph of game and mod sources into a documents repo (`graph.toml`): terms, the engine reference, a card per record with its links, what each mod changes in vanilla; `--check` only compares |
 | `v3 hook session-start` | the plugin's hook at a session's start: the agent gets a short menu of what `v3` can do and whether its folder is in the set — no section in a project's `CLAUDE.md` needed |
 | `v3 hook pre-tool-use` | the Claude Code hook of the plugin (`claude-plugin/`): a grep for a name, or a read of a whole big file, in game or mod folders gets the index's answer instead, once per session |
 | `v3 hook post-tool-use` | the plugin's hook after an edit: an edited `.gui` / `.txt` / `.yml` of a playset mod gets `v3 lint`'s fast rules (braces, BOM, project rules, GUI types that never apply, text width around the edited lines); new reports go to the agent as context |
@@ -438,3 +439,34 @@ A node — the folder above the clones, the Obsidian vault — lists them: `memb
 as Obsidian resolves them; run in a member inside the node, only its documents; run in a repo alone (its CI), a link
 that leads out of it is a note. `docs-check-known.txt` beside the config lists findings accepted for now
 (`<file>: <code> <what>`, `#` — why); they are notes. `--notes` lists the notes, `--json` — everything.
+
+## The sources' documentation graph: `v3 graph`
+
+Generated notes about the sources a project stands on — the game and other people's mods — for an Obsidian vault.
+The documents repo has `graph.toml` at its root:
+
+```toml
+version = "1.13"                     # game version of the snapshot, written into notes
+paths_root = ".."                    # notes' `paths` are relative to it (the snapshot)
+avoid = ["../../docs"]               # note names the generated ones must not repeat
+dump = "C:/…/Victoria 3/docs"        # engine: the script_docs dump to copy, and its date
+dump_date = "2026-10-13"
+[sources.vanilla]                    # required: the base everything is compared with
+snapshot = "../.vanillaVIC3"
+label = "ваниль"
+[sources.ef]                         # every other source is a mod
+snapshot = "../E&F"
+label = "E&F"
+```
+
+| layer | writes | what |
+| --- | --- | --- |
+| `terms` | `vanilla/Термины/` | a note per game concept (`common/game_concepts`), the game's text with concept links |
+| `engine` | `vanilla/движок/` | the dump copied to `дамп/`; effects, triggers, modifier types, event targets, on_actions — a list item per entry with a block id (`^m-goods-input-grain-add`), big kinds split by letter |
+| `objects` | `vanilla/<type>/` | a card per record of 16 types (buildings, methods and their groups, goods, laws, technologies, interest groups, ideologies, companies, traits, pop types, needs, buy packages): fields as written, script blocks by name and lines, links to other cards and to modifier types, "Ссылаются" — who links here, by field |
+| `mods` | `<mod>/` | "Что меняет в ванили — <mod>": `common/` records by folder — adds, replaces, injects, adds up, removed by a file over vanilla's path, no effect (a bare repeat in first-wins folders); defines one by one; files over vanilla's; event ids vanilla has; localization keys vanilla has outside `replace/`. Cards of the records the mod adds or changes, a changed one with its differences from vanilla field by field and `replaces` |
+
+Generated links carry the source and type (`[[vanilla/Здания/Шахты|Шахты]]`), so cards of many sources with the same
+names never make a link ambiguous; a name taken by an `avoid` note or a term gets the type in brackets. A hand section
+— `## Зачем в механике` on a card, `## Рабочее` on a term — is kept by the note's `key:`. `v3 graph all` runs the
+layers in order (engine before objects: cards link to it); `--source NAME` limits `mods`.
