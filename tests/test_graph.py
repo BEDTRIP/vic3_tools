@@ -71,6 +71,9 @@ def test_mod_layer(tmp_path):
        "\tlevels_per_mesh = 5\n}\nbuilding_mill = { production_method_groups = { pmg_bread } }\n")
     _w(mod / "common/scripted_effects/x.txt", "my_effect = { }\n")
     _w(mod / "common/on_actions/x.txt", "on_monthly_pulse = { on_actions = { my_hook } }\n")
+    _w(mod / "common/game_concepts/c.txt", "concept_loaf = { }\n")
+    _w(mod / "localization/russian/m_l_russian.yml", 'l_russian:\n concept_loaf:0 "Буханка"\n'
+       ' concept_loaf_desc:0 "Форма [concept_bread|l]."\n')
     _w(cfg.root / "graph.toml", (cfg.root / "graph.toml").read_text(encoding="utf-8")
        + '[sources.mod]\nsnapshot = "../mod"\nlabel = "Мод"\n', bom=False)
     cfg = graph.load(cfg.root)
@@ -84,3 +87,6 @@ def test_mod_layer(tmp_path):
     ref = (d / "Что меняет в ванили — Мод.md").read_text(encoding="utf-8")
     assert "| `buildings` | 1 | 1 | 0 | 0 | 0 | 0 | 0 |" in ref
     assert "- **добавляет** (1): [[mod/Здания/building_mill|building_mill]]" in ref
+    assert n["terms"] == 1
+    loaf = (d / "Термины/Буханка.md").read_text(encoding="utf-8")
+    assert "Форма [[vanilla/Термины/Хлеб|хлеб]]." in loaf and "source: mod" in loaf

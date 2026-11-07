@@ -64,7 +64,10 @@ def run_mods(cfg: Config, check: bool, only: list[str] | None = None) -> list[tu
     layer = vanilla_layer(cfg)
     taken = taken_names(cfg)
     mlinks = modifier_links(cfg)
-    scope = (*(t.out.split("/")[0] + "/" for t in objects.TYPES), "Что меняет в ванили")
+    scope = (*(t.out.split("/")[0] + "/" for t in objects.TYPES), "Что меняет в ванили", "Термины/")
+    avoid = cfg.avoid_names()
+    van_terms = terms.names_of(van.snapshot, avoid)
+    avoid_terms = avoid | set(van_terms.values())
     out = []
     for name, src in cfg.sources.items():
         if name == van.name or (only and name not in only):
@@ -72,5 +75,8 @@ def run_mods(cfg: Config, check: bool, only: list[str] | None = None) -> list[tu
         dst = cfg.root / name
         ml = mods.build(name, src.label, cfg.version, src.snapshot, van.snapshot, layer,
                         objects.snapshot_rel(src.snapshot, cfg.paths_root), taken, dst, mlinks)
-        out.append((name, sync(dst, ml.notes, check, scope), ml.counts))
+        tn, tc = terms.build_mod(src.snapshot, van.snapshot, dst / "Термины", avoid_terms, name, src.label,
+                                 cfg.version, van_terms)
+        ml.notes.update({f"Термины/{k}": v for k, v in tn.items()})
+        out.append((name, sync(dst, ml.notes, check, scope), ml.counts | tc))
     return out

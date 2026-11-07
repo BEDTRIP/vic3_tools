@@ -66,8 +66,15 @@ def load_concepts(folder):
 
 
 class Gen:
-    def __init__(self, concepts, loc, en, mod_names, fork=None, gen=GEN, version="1.13"):
+    def __init__(self, concepts, loc, en, mod_names, fork=None, gen=GEN, version="1.13", src="vanilla",
+                 label="ваниль", own=None, base_names=None):
+        # a mod's terms: notes only for its ``own`` concepts, links to the rest (vanilla's, named by ``base_names``)
+        # and to its own ones carry the path, as every generated link of a mod does
         self.concepts = concepts
+        self.src, self.label = src, label
+        self.tag = "ваниль" if src == "vanilla" else src
+        self.own = own if own is not None else concepts
+        self.prefix = {}
         self.fork = fork or {}
         self.gen, self.version = gen, version
         self.cset = set(concepts)
@@ -77,9 +84,15 @@ class Gen:
         self.names = {}
         used = {}
         for c in concepts:
+            if base_names is not None and c not in self.own:
+                self.names[c] = base_names.get(c) or self.clean_name(loc.get(c) or en.get(c) or c)
+                self.prefix[c] = "vanilla/Термины/"
+                continue
             name = self.clean_name(loc.get(c) or en.get(c) or c)
             if name in mod_names:
-                name += " (ваниль)"
+                name += f" ({label})"
+            if base_names is not None:
+                self.prefix[c] = f"{src}/Термины/"
             if name in used:
                 name = f"{name} ({c[len('concept_'):]})"
             used[name] = c
@@ -126,7 +139,8 @@ class Gen:
             return self.low(self.conv(raw, 3) if self.nolink < 4 else raw, fmt)
         if self.nolink:
             return shown
-        self.ph.append(f"[[{name}]]" if shown == name else f"[[{name}|{shown}]]")
+        target = self.prefix.get(c, "") + name
+        self.ph.append(f"[[{target}]]" if shown == name and target == name else f"[[{target}|{shown}]]")
         return f"\x00{len(self.ph) - 1}\x00"
 
     def plain(self, s, depth=3):
@@ -206,10 +220,22 @@ class Gen:
         al = ", ".join('"' + a.replace('"', "'") + '"' for a in self.aliases(c))
         body = self.conv(desc) if desc else "_Описания в игре нет._"
         fork = "\n" + self.fork[c] if c in self.fork else ""
-        dsc = f"Термин игры «{name}» — подсказка-понятие Victoria 3 {self.version} (`{c}`)".replace('"', "'")
-        return (f'---\ntype: concept\ndescription: "{dsc}"\nproject: vic3\nsource: vanilla\naliases: [{al}]\n'
-                f'tags: [ваниль, термин]\ngenerated: "{self.gen}"\nkey: {c}\n---\n'
+        whose = "Термин игры" if self.src == "vanilla" else f"Термин мода {self.label}"
+        dsc = f"{whose} «{name}» — подсказка-понятие Victoria 3 {self.version} (`{c}`)".replace('"', "'")
+        return (f'---\ntype: concept\ndescription: "{dsc}"\nproject: vic3\nsource: {self.src}\naliases: [{al}]\n'
+                f'tags: [{self.tag}, термин]\ngenerated: "{self.gen}"\nkey: {c}\n---\n'
                 f"# {name}\n\n{body}\n{fork}")
+
+    def mod_index(self):
+        rows = sorted(self.own, key=lambda c: self.names[c].lower())
+        out = ["---", "type: map",
+               f'description: "Карта терминов мода {self.label} — его подсказки-понятия по алфавиту"',
+               "project: vic3", f"source: {self.src}", f"tags: [{self.tag}, термин]", f'generated: "{self.gen}"',
+               "---", f"# Термины {self.label}", "",
+               f"Свои подсказки-понятия мода (`common/game_concepts`), {len(rows)}; ссылки на термины игры — в "
+               "`vanilla/Термины/`. Генерат: текст руками не править, ручной раздел — «## Рабочее».", ""]
+        out += [f"- [[{self.src}/Термины/{self.names[c]}|{self.names[c]}]]" for c in rows]
+        return "\n".join(out) + "\n"
 
     def index(self):
         rows = sorted(self.concepts, key=lambda c: self.names[c].lower())
@@ -232,6 +258,26 @@ class Gen:
         return "\n".join(out) + "\n"
 
 
+def build_mod(mod: Path, game: Path, dst: Path, avoid: set[str], src: str, label: str, version: str,
+              van_names: dict[str, str], lang: str = "russian") -> tuple[dict[str, str], dict]:
+    """A mod's own concepts (those vanilla lacks); its text links to vanilla's terms by path."""
+    van = load_concepts(game / "common" / "game_concepts")
+    folder = mod / "common" / "game_concepts"
+    own = [c for c in (load_concepts(folder) if folder.is_dir() else []) if c not in set(van)]
+    if not own:
+        return {}, {"terms": 0}
+    loc = load_loc(mod / "localization" / lang)
+    for k, v in load_loc(game / "localization" / lang).items():
+        loc.setdefault(k, v)
+    en = load_loc(mod / "localization" / "english")
+    for k, v in load_loc(game / "localization" / "english").items():
+        en.setdefault(k, v)
+    g = Gen(own + van, loc, en, avoid, hand_sections(dst), GEN, version, src, label, own, van_names)
+    out = {f"{g.names[c]}.md": g.note(c) for c in own}
+    out[f"_Карта терминов {label}.md"] = g.mod_index()
+    return out, {"terms": len(own)}
+
+
 def build(game: Path, dst: Path, avoid: set[str], lang: str = "russian", gen: str = GEN,
           version: str = "1.13") -> tuple[dict[str, str], dict]:
     """Notes of the terms layer: file name -> text, and counts for the report."""
@@ -242,3 +288,10 @@ def build(game: Path, dst: Path, avoid: set[str], lang: str = "russian", gen: st
     out = {f"{g.names[c]}.md": g.note(c) for c in concepts}
     out["_Карта ванили.md"] = g.index()
     return out, {"concepts": len(concepts), "loc": len(loc)}
+
+
+def names_of(game: Path, avoid: set[str], lang: str = "russian") -> dict[str, str]:
+    """Vanilla's concept -> its note name, as ``build`` names them."""
+    concepts = load_concepts(game / "common" / "game_concepts")
+    g = Gen(concepts, load_loc(game / "localization" / lang), load_loc(game / "localization" / "english"), avoid)
+    return dict(g.names)
