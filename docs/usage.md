@@ -456,6 +456,7 @@ paths_root = ".."                    # notes' `paths` are relative to it (the sn
 avoid = ["../../docs"]               # note names the generated ones must not repeat
 dump = "C:/…/Victoria 3/docs"        # engine: the script_docs dump to copy, and its date
 dump_date = "2026-10-13"
+dump_version = "1.13"                 # engine: the dump's game version when it is not `version`
 audience = "agent"                  # into every header: the notes are for the agent, hidden from a person
 [sources.vanilla]                    # required: the base everything is compared with
 snapshot = "../.vanillaVIC3"
@@ -463,6 +464,7 @@ label = "ваниль"
 [sources.ef]                         # every other source is a mod
 snapshot = "../E&F"
 label = "E&F"
+version = "1.13"                     # the source's own version when its snapshot is not `version`
 ```
 
 | layer | writes | what |

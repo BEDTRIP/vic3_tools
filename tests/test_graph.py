@@ -103,3 +103,17 @@ def test_audience_in_every_header(tmp_path):
     for f in (cfg.root / "vanilla").rglob("*.md"):
         head = f.read_text(encoding="utf-8").split("\n---\n", 1)[0]
         assert "\nproject: vic3\naudience: agent\n" in head, f
+
+
+def test_source_own_version(tmp_path):
+    cfg = _setup(tmp_path)
+    _w(tmp_path / "out" / "mod" / "common/buildings/zz_mod.txt", "building_mill = { }\n")
+    _w(cfg.root / "graph.toml", (cfg.root / "graph.toml").read_text(encoding="utf-8").replace("1.13", "1.15")
+       + '[sources.mod]\nsnapshot = "../mod"\nlabel = "Мод"\nversion = "1.13"\n', bom=False)
+    cfg = graph.load(cfg.root)
+    assert cfg.sources["mod"].version == "1.13" and cfg.vanilla.version == ""
+    run.run_mods(cfg, False)
+    ref = (cfg.root / "mod" / "Что меняет в ванили — Мод.md").read_text(encoding="utf-8")
+    assert "меняет в ванили 1.15 (снимок мода — 1.13)" in ref and "сравнение с ваниль 1.15." in ref
+    mill = (cfg.root / "mod" / "Здания/building_mill.md").read_text(encoding="utf-8")
+    assert "Мод 1.13" in mill

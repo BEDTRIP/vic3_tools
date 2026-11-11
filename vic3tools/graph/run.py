@@ -24,7 +24,7 @@ def run_engine(cfg: Config, check: bool) -> tuple[Sync, dict]:
     copied = []
     if cfg.dump and cfg.dump.is_dir() and not check:
         copied = engine.copy_raw(cfg.dump, raw)
-    out, counts = engine.notes(raw, cfg.vanilla.name, cfg.version, cfg.dump_date)
+    out, counts = engine.notes(raw, cfg.vanilla.name, cfg.dump_version or cfg.version, cfg.dump_date)
     s = sync(engine_dir(cfg), out, check, tuple(f"{k.title}" for k in engine.KINDS) + ("_Карта движка",),
              cfg.audience)
     return s, counts | {"copied": len(copied)}
@@ -74,10 +74,11 @@ def run_mods(cfg: Config, check: bool, only: list[str] | None = None) -> list[tu
         if name == van.name or (only and name not in only):
             continue
         dst = cfg.root / name
-        ml = mods.build(name, src.label, cfg.version, src.snapshot, van.snapshot, layer,
-                        objects.snapshot_rel(src.snapshot, cfg.paths_root), taken, dst, mlinks)
+        ver = src.version or cfg.version
+        ml = mods.build(name, src.label, ver, src.snapshot, van.snapshot, layer,
+                        objects.snapshot_rel(src.snapshot, cfg.paths_root), taken, dst, mlinks, cfg.version)
         tn, tc = terms.build_mod(src.snapshot, van.snapshot, dst / "Термины", avoid_terms, name, src.label,
-                                 cfg.version, van_terms)
+                                 ver, van_terms)
         ml.notes.update({f"Термины/{k}": v for k, v in tn.items()})
         out.append((name, sync(dst, ml.notes, check, scope, cfg.audience), ml.counts | tc))
     return out

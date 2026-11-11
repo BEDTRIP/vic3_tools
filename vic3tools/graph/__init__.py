@@ -8,6 +8,7 @@ The layout is ``graph.toml`` at the root of the documents repo::
     paths_root = ".."                      # ``paths`` of the notes are relative to it (as docs-check.toml has it)
     dump = "C:/…/Victoria 3/docs"          # engine: the script_docs dump to copy (optional), and its date
     dump_date = "2026-10-13"
+    dump_version = "1.13"                  # engine: game version of the dump, when it is not ``version`` (optional)
     audience = "agent"                     # into every note's header: who the notes are for (methodology,
                                            # «Шапка документа»); none — for a person
     [sources.vanilla]
@@ -16,6 +17,7 @@ The layout is ``graph.toml`` at the root of the documents repo::
     [sources.ef]
     snapshot = "../E&F"
     label = "E&F"
+    version = "1.13"                       # the source's own version, when its snapshot is not ``version`` (optional)
 
 Each source writes into ``<repo>/<source>/``. Notes are generated: the text is never edited by hand, a hand section
 (named per layer) is kept by the note's ``key:``.
@@ -34,6 +36,7 @@ class Source:
     name: str  # folder in the documents repo
     snapshot: Path
     label: str
+    version: str = ""  # the snapshot's own version when it is not the config's
 
 
 @dataclass
@@ -46,6 +49,7 @@ class Config:
     dump: Path | None = None  # the game's docs folder with the script_docs dump, copied by ``engine``
     dump_date: str = ""
     audience: str = ""
+    dump_version: str = ""
 
     @property
     def vanilla(self) -> Source:
@@ -71,11 +75,13 @@ def load(start: Path) -> Config:
     path = find_config(start)
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     root = path.parent
-    srcs = {name: Source(name, (root / s["snapshot"]).resolve(), s.get("label", name))
+    srcs = {name: Source(name, (root / s["snapshot"]).resolve(), s.get("label", name),
+                   str(s.get("version", "")))
             for name, s in data.get("sources", {}).items()}
     return Config(root, str(data.get("version", "")), srcs, [(root / a).resolve() for a in data.get("avoid", [])],
                   (root / data.get("paths_root", ".")).resolve(), Path(data["dump"]) if data.get("dump") else None,
-                  str(data.get("dump_date", "")), str(data.get("audience", "")))
+                  str(data.get("dump_date", "")), str(data.get("audience", "")),
+                  str(data.get("dump_version", "")))
 
 
 @dataclass

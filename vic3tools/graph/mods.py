@@ -225,14 +225,17 @@ def _list(keys: list[str], link=None, limit: int = 400) -> str:
 
 def reference(src_name: str, label: str, version: str, snap_rel: str, changes: list[FolderChange],
               defines: list, tops: dict[str, tuple[int, list[str]]], events: tuple[int, list[str]],
-              locs: tuple[int, int, int], link_card, text_files: int = 1) -> str:
+              locs: tuple[int, int, int], link_card, text_files: int = 1, van_version: str = "") -> str:
+    """``version`` — the mod's snapshot, ``van_version`` — vanilla's (the same when not given)."""
+    van_version = van_version or version
+    own = f" (снимок мода — {version})" if van_version != version else ""
     what = "записи common/ по папкам, defines, файлы поверх ваниль, события, локализация"
     tag = label if objects.TAG_WORD.fullmatch(label) else src_name
-    fm = ["---", "type: reference", f"description: {_q(f'Что мод {label} меняет в ванили {version}: {what}')}",
+    fm = ["---", "type: reference", f"description: {_q(f'Что мод {label} меняет в ванили {van_version}{own}: {what}')}",
           "project: vic3", f"source: {src_name}", f"tags: [{tag}, что-меняет]",
           f"generated: {_q('v3 graph mods')}", *([f"paths: [{snap_rel}/**]"] if text_files else []), "---"]
     out = [f"# Что меняет в ванили — {label}", "",
-           f"Снимок `{snap_rel}`, сравнение с ваниль {version}. Генерат `v3 graph mods`: руками не править. Правила "
+           f"Снимок `{snap_rel}`{own}, сравнение с ваниль {van_version}. Генерат `v3 graph mods`: руками не править. Правила "
            "слияния — навык `vic3-modding`, «load-and-override»: запись, которой нет у ваниль, мод **добавляет**; "
            "голое тело или `REPLACE:` ключа ваниль **заменяет** запись целиком; `INJECT:` **дополняет**; файл с путём "
            "файла ваниль — файл ваниль не читается, его записи, которых мод не повторил, **удалены**. Сравнение только "
@@ -300,7 +303,7 @@ class ModLayer:
 
 
 def build(src_name: str, label: str, version: str, mod_root: Path, van_root: Path, van_layer, snap_rel: str,
-          taken: set[str], dst: Path, modifier_links: dict[str, str] | None = None) -> ModLayer:
+          taken: set[str], dst: Path, modifier_links: dict[str, str] | None = None, van_version: str = "") -> ModLayer:
     van_recs, _van_names, van_cnames = van_layer
     mod_recs = objects.all_records(mod_root)
     names = objects.Names([mod_root, van_root])
@@ -328,7 +331,8 @@ def build(src_name: str, label: str, version: str, mod_root: Path, van_root: Pat
     dup = sorted(ev & event_ids(van_root)) if ev else []
     ref = reference(src_name, label, version, snap_rel, changes, defines_changes(mod_root, van_root), tops,
                     (len(ev), dup), loc_overlap(mod_root, van_root), link_card,
-                    sum(1 for f in mod_root.rglob("*") if f.is_file() and f.suffix.lower() not in (".dds", ".png")))
+                    sum(1 for f in mod_root.rglob("*") if f.is_file() and f.suffix.lower() not in (".dds", ".png")),
+                    van_version)
     notes[f"Что меняет в ванили — {file_label(label)}.md"] = ref
     return ModLayer(notes, {"cards": len(cards), "folders": len(changes)})
 

@@ -439,6 +439,7 @@ paths_root = ".."                    # от него `paths` заметок (с�
 avoid = ["../../docs"]               # имена заметок, которые генерат не должен повторять
 dump = "C:/…/Victoria 3/docs"        # engine: дамп script_docs для копии и его дата
 dump_date = "2026-10-13"
+dump_version = "1.13"                 # engine: версия игры дампа, если не `version`
 audience = "agent"                  # в каждую шапку: заметки — агенту, человеку их не показывают
 [sources.vanilla]                    # обязателен: основа, с которой сравнивается всё
 snapshot = "../.vanillaVIC3"
@@ -446,6 +447,7 @@ label = "ваниль"
 [sources.ef]                         # любой другой источник — мод
 snapshot = "../E&F"
 label = "E&F"
+version = "1.13"                     # своя версия источника, если снимок не `version`
 ```
 
 | слой | пишет | что |
