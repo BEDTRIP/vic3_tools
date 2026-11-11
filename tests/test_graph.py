@@ -117,3 +117,12 @@ def test_source_own_version(tmp_path):
     assert "меняет в ванили 1.15 (снимок мода — 1.13)" in ref and "сравнение с ваниль 1.15." in ref
     mill = (cfg.root / "mod" / "Здания/building_mill.md").read_text(encoding="utf-8")
     assert "Мод 1.13" in mill
+
+
+def test_sync_name_changes_case(tmp_path):
+    (tmp_path / "Здания").mkdir()
+    (tmp_path / "Здания/верфи.md").write_text("old", encoding="utf-8")
+    s = graph.sync(tmp_path, {"Здания/Верфи.md": "new"}, False)
+    assert s.changed == ["Здания/Верфи.md"] and s.stale == []
+    assert [p.name for p in (tmp_path / "Здания").iterdir()] == ["Верфи.md"]
+    assert (tmp_path / "Здания/Верфи.md").read_text(encoding="utf-8") == "new"

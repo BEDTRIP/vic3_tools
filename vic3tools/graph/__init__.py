@@ -116,7 +116,15 @@ def sync(dst: Path, notes: dict[str, str], check: bool, scope: tuple[str, ...] =
     changed = [f for f, t in notes.items()
                if not (dst / f).is_file() or (dst / f).read_bytes().decode("utf-8") != t]
     stale = sorted(have - set(notes))
+    # a name that changed only in case: on a case-insensitive disk (Windows) the old file IS the new one — remove it
+    # before writing, or removing it as stale deletes the fresh note
+    fold = {k.casefold(): k for k in notes}
+    recased = [f for f in stale if f.casefold() in fold]
+    stale = [f for f in stale if f not in recased]
+    changed += [fold[f.casefold()] for f in recased if fold[f.casefold()] not in changed]
     if not check:
+        for f in recased:
+            (dst / f).unlink()
         for f in changed:
             p = dst / f
             p.parent.mkdir(parents=True, exist_ok=True)
