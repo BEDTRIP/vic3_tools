@@ -268,7 +268,7 @@ else {
         }
         if ($userMode) { $userMode = $false; Log "the user has been away 3 min - the run goes on" }
         if (-not (Is-Advancing $p 16) -and (Is-Screen $p "gameover")) {
-            # the player's country is gone (Д.R4б.34): observer mode, the project's hook finds the heir, sit down as it
+            # the player's country is gone (ADR-0209): observer mode, the project's hook finds the heir, sit down as it
             if (-not (Sit-Heir $p)) { break }
             continue
         }
