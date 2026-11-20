@@ -466,7 +466,8 @@ class Checker:
         self._code_refs(repo, rel, body_all)
 
     def agent(self, key: str) -> bool:
-        """A note only for the agent (``audience: agent``): hidden from a person, no orphan or concept checks."""
+        """A note written for the agent (``audience: agent``): a mark for a person's filter, linked like any other;
+        no orphan or concept checks on it."""
         return str(self.fm.get(key, {}).get("audience", "")).strip("'\"") == "agent"
 
     def _link(self, repo: Repo, rel: str, key: str, target: str, anchor: str, header: bool = False) -> None:
@@ -480,11 +481,6 @@ class Checker:
         top = self.v.pick(hit, "")
         if len(hit) > 1 and (hit[0] != top[0] or len(top[0]) == len(top[1])):
             self.add(repo, rel, "link_ambiguous", target, cands=", ".join(_orig_case(self.v, h) for h in hit[:4]))
-        if self.agent(hit[0]) and not self.agent(key) and hit[0] != key and not header:
-            # a person's text does not lead into an agent's note (a click lands where it is not for him): words or a
-            # path; links of the header (uses, replaces, decisions…) are for the agent and the check — allowed
-            hist = matches(rel, repo.globs("history", ["docs/история/**"]))
-            self.add(repo, rel, "link_to_agent", target, note=hist)
         if anchor and hit[0].endswith(".md"):
             heads, blocks = self.v.anchors(hit[0])
             a = anchor.split("#")[-1].strip()
@@ -693,7 +689,7 @@ class Checker:
             p = m.group(1).lstrip("./")
             cands = [(repo.prefix + p).lower(), p.lower()]
             k = next((c for c in cands if c in self.v.docs), None)
-            if "/" in p and k and k != key and not self.agent(k):  # an agent's note stays a path
+            if "/" in p and k and k != key:
                 a, b = m.span()
                 if any(s <= a and b <= e and (e - s) > (b - a) for s, e in spans):
                     continue

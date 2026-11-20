@@ -108,7 +108,7 @@ def test_globs():
 
 
 def test_agent_notes(tmp_path):
-    """audience: agent — no orphan; a person's document leading there is a finding (in history — a note)."""
+    """audience: agent — only a mark for a person's filter: no orphan, links into it from any text are fine."""
     node = vault(tmp_path)
     mod = node / "mod"
     doc(mod / "docs" / "агенту" / "Выписка.md", "reference", extra="audience: agent\n")  # nobody links: no orphan
@@ -117,9 +117,9 @@ def test_agent_notes(tmp_path):
     doc(mod / "docs" / "код" / "d.md", "code", "# D\n", 'paths: ["common/a.txt"]\nuses: ["[[Разбор]]"]\n')  # header: ok
     write(mod / "docs" / "история" / "old.md", "[[Разбор]]\n")
     res = docs_lint.check(node)
-    assert codes(res) == [("docs/код/c.md", "link_to_agent")]
+    assert codes(res) == []
     notes = [(f.file, f.code) for f in res.findings if f.note]
-    assert ("docs/история/old.md", "link_to_agent") in notes
+    assert not any(c == "link_to_agent" for _, c in notes)
     assert not any(c == "orphan" and "агенту" in f for f, c in notes)
 
 

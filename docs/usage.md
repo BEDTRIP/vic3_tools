@@ -442,10 +442,9 @@ as Obsidian resolves them; run in a member inside the node, only its documents; 
 that leads out of it is a note. `docs-check-known.txt` beside the config lists findings accepted for now
 (`<file>: <code> <what>`, `#` — why); they are notes. `--notes` lists the notes, `--json` — everything.
 
-A note with `audience: agent` is for the agent only: no orphan or concept-section checks on it, and a link into it
-from the text of a person's document is a finding (`link_to_agent`; in history — a note): put what is needed in
-words, or as a path in `code` — `--fix` leaves such a path as it is. Links in the header (`uses`, `replaces`,
-`adr`…) are allowed: they give the agent's note its backlinks.
+A note with `audience: agent` is written for the agent (generated notes, extracts): it is only a mark a person
+filters out of the Obsidian graph, and it is linked like any other note, from text and header alike; no orphan or
+concept-section checks on it.
 
 Planning lives in `docs/план/`: epics beside its `README.md`, issues in `docs/план/задачи/` named `<KEY-N> — <topic>`
 (closed ones — in `docs/история/задачи/`), ADR in `docs/решения/` named `ADR-NNNN — <question>`. An issue is checked
