@@ -53,11 +53,22 @@ param(
     [string]$Theme = "",
     [string]$Name = "vic3-sandbox",
     [string]$CredentialPath = (Join-Path $env:LOCALAPPDATA "vic3tools\vm-cred.xml"),
-    [int]$TimeoutMinutes = 180
+    [int]$TimeoutMinutes = 180,
+    # the game's documents folder on the host (settings, key bindings, saves, content_load.json); default: as v3
+    # finds it -- roots.documents of %LOCALAPPDATA%\vic3tools\vic3tools.toml, else this user's Documents
+    [string]$HostDocs = ""
 )
 $ErrorActionPreference = "Stop"
 if (-not $ScriptDir) { $ScriptDir = Join-Path (Split-Path $PSScriptRoot) "game" }
-$HostDocs = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Paradox Interactive\Victoria 3"
+if (-not $HostDocs) {
+    # the game may live under another user (the agent runs as its own user, the game is the owner's)
+    $cfg = Join-Path $env:LOCALAPPDATA "vic3tools\vic3tools.toml"
+    if (Test-Path $cfg) {
+        $m = Select-String -Path $cfg -Pattern "^\s*documents\s*=\s*['""](.+?)['""]" | Select-Object -First 1
+        if ($m) { $HostDocs = $m.Matches[0].Groups[1].Value }
+    }
+}
+if (-not $HostDocs) { $HostDocs = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Paradox Interactive\Victoria 3" }
 if (-not $ContentLoad) { $ContentLoad = Join-Path $HostDocs "content_load.json" }
 $Guest = "C:\vic3tools"
 $RunId = Split-Path $OutDir -Leaf

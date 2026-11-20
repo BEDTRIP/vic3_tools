@@ -88,6 +88,18 @@ Invoke-Command -VMName $Name -Credential $cred -ArgumentList $cred.UserName, $cr
     powercfg /change standby-timeout-ac 0
     "power: no display off, no sleep"
 
+    # Windows' "finish setting up / back up your PC" screens after its own updates cover the desktop: the game
+    # cannot come to the front and the run stops (20.11.2026)
+    $ue = "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement"
+    New-Item $ue -Force | Out-Null
+    Set-ItemProperty $ue ScoobeSystemSettingEnabled 0 -Type DWord
+    $cdm = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+    New-Item $cdm -Force | Out-Null
+    foreach ($v in "SubscribedContent-310093Enabled", "SubscribedContent-338389Enabled", "SoftLandingEnabled") {
+        Set-ItemProperty $cdm $v 0 -Type DWord
+    }
+    "windows: no setup / backup prompts over the desktop"
+
     $steam = (Get-ItemProperty "HKCU:\Software\Valve\Steam").SteamPath -replace "/", "\"
     $docs = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Paradox Interactive"
     Add-MpPreference -ExclusionPath $steam, $docs -ExclusionProcess "victoria3.exe"

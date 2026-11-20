@@ -44,7 +44,20 @@ script's parameters are a JSON object (`RunMinutes`, `NewGame`, `Tag`, `Observe`
 those steps click at points measured at 1. The PC bridge runs this with `start.ps1 -Vm`; the bench (`v3 bench`) keeps
 the game open in the VM between steps.
 
+## After a game patch
+
+Steam in the guest stays offline, so the guest keeps the old version: `Update-SandboxGame.ps1` compares the game
+folders of the PC and the guest by size and MD5 and copies what differs over PowerShell Direct, with the PC's Steam
+manifest (`-WhatIf` — only list). 1.15.0 → 1.15.2 was 808 files, ~1 GB. Then one short vanilla run.
+
 ## Good to know
+
+- Windows updates in the guest bring back "finish setting up / back up your PC" screens over the desktop: the game
+  cannot come to the front, the run stops with «the game cannot be brought to front». `Initialize-SandboxGuest.ps1`
+  turns them off (`ScoobeSystemSettingEnabled`); on an older guest — the same keys by hand, then a reboot from inside.
+- The game's documents folder on the host (settings, saves, content_load.json) — `roots.documents` of the vic3tools
+  config, else the current user's Documents: the agent may run as another user than the one who plays
+  (`-HostDocs` overrides).
 
 - Restart the VM only from inside (`Restart-Computer -Force`). `Restart-VM -Force` is a hard reset and loses registry
   edits.
