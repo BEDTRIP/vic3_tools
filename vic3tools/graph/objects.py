@@ -371,7 +371,7 @@ def render_card(c: Card, src_name: str, label: str, version: str, snapshot_rel: 
         al.append(en)
     if r.key not in al:
         al.append(r.key)
-    fm = ["---", "type: concept",
+    fm = ["---", "type: explanation",
           f"description: {_q(f'{t.noun} «{c.name}» — {label} {version}, `{r.key}`')}",
           "project: vic3", f"source: {src_name}", f"aliases: [{', '.join(_q(a) for a in al)}]",
           f"tags: [{label if TAG_WORD.fullmatch(label) else src_name}, {t.tag}]",
@@ -406,7 +406,7 @@ def render_card(c: Card, src_name: str, label: str, version: str, snapshot_rel: 
 
 def type_map(src_name: str, label: str, version: str, t: Type, cards: list[Card]) -> str:
     rows = sorted((c for c in cards if c.rec.type is t), key=lambda c: c.name.lower())
-    out = ["---", "type: map", f"description: {_q(f'Карта: {t.out} — {label} {version}, все карточки типа')}",
+    out = ["---", "type: moc", f"description: {_q(f'Карта: {t.out} — {label} {version}, все карточки типа')}",
            "project: vic3", f"source: {src_name}", f"tags: [{t.tag}]", f"generated: {_q(GEN)}", "---",
            f"# {t.out} — {label}", "",
            f"Карточки типа «{t.noun}» ({len(rows)}, `{t.folder}`). Генерат `v3 graph objects`: текст не править, "

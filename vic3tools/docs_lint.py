@@ -6,11 +6,14 @@ repo — the folder above the clones of the others, the Obsidian vault — lists
 node, links between repos resolve as Obsidian resolves them in the whole vault. A repo checked alone (its CI) checks
 its own links; a link that leads out of it is a note for the node's check.
 
-What is checked (the methodology's «Проверка»): headers (keys, values from the lists, keys of the kind), Obsidian and
-Markdown links, anchors, ambiguous names, concepts on the map with their core section, ``status`` of a concept against
-its «Открыто», findings, ``paths`` and ``verified``, active decisions nobody embodies, mentions as text (decision and
-stage numbers, paths to documents, concept names — ``--fix`` makes them links), code paths in backticks, decision
-numbers and document paths in code comments, code no document's ``paths`` covers. History — only links and anchors.
+What is checked (the methodology's «Проверка (docs lint)»): headers (keys, values from the lists — Diátaxis kinds,
+tracker statuses, ADR), Obsidian and Markdown links, anchors, ambiguous names, table rows against their header,
+concepts (``explanation``) on the map with their core section, ``status`` of a concept against its «Открыто», issues
+(task and bug: key of the component, statuses and the keys they need, ``touches``, ``depends``, open vs history, stale
+claims, overlapping ``touches``, size), ADR (accepted / superseded), ``paths`` and ``verified``, mentions as text (ADR
+numbers, issue keys, epic names, paths to documents, concept names — ``--fix`` makes them links), code paths in
+backticks, ADR numbers, issue keys and document paths in code comments, code no document's ``paths`` covers.
+History — only links and anchors.
 
 ``docs-check-known.txt`` beside the config: findings accepted for now (``<file>: <code> <arg>``, ``#`` — why); they
 are listed as notes, not failures.
@@ -21,6 +24,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import time
 import tomllib
 from dataclasses import dataclass, field
 from functools import cache
@@ -31,17 +35,26 @@ CONFIG = "docs-check.toml"
 KNOWN = "docs-check-known.txt"
 SKIP_DIRS = {".git", ".obsidian", ".trash", "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache",
              ".ruff_cache", ".mypy_cache"}
-TYPES = {"entry", "concept", "map", "code", "procedure", "reference", "goals", "plan", "phase", "queue", "decision",
-         "finding", "lesson", "history"}
-STATUS = {"concept": {"open", "done"}, "phase": {"planned", "active", "paused", "done"},
-          "queue": {"planned", "active", "done"}, "decision": {"open", "active", "replaced"},
-          "finding": {"suspected", "confirmed", "blocked", "fixed", "resolved", "rejected", "accepted"}}
-NEED = {"phase": ["status", "date"], "queue": ["phase", "date", "status"], "decision": ["status", "date"],
-        "finding": ["status", "date"], "lesson": ["date", "applies"], "history": ["date", "kind"],
-        "concept": ["status"]}
-KINDS = {"phase", "snapshot", "journal", "audit", "research"}
+TYPES = {"entry", "explanation", "moc", "code", "how-to", "reference", "roadmap", "epic", "issue", "adr", "lesson",
+         "history"}
+TASK = {"todo", "in-progress", "blocked", "review", "done", "wontdo"}
+BUG = {"unconfirmed", "confirmed", "in-progress", "blocked", "fixed", "verified", "wontfix", "invalid", "duplicate"}
+CLOSED = {"done", "wontdo", "verified", "wontfix", "invalid", "duplicate"}
+STATUS = {"explanation": {"open", "done"}, "epic": {"todo", "in-progress", "on-hold", "done"},
+          "issue": TASK | BUG, "adr": {"accepted", "superseded", "deprecated"}}
+NEED = {"epic": ["status", "date"], "issue": ["kind", "component", "epic", "date", "status"],
+        "adr": ["status", "date"], "lesson": ["date", "applies"], "history": ["date", "kind"],
+        "explanation": ["status"]}
+KINDS = {"epic", "snapshot", "journal", "audit", "research"}
 SEVERITY = {"critical", "high", "medium", "low"}
-EMBODY_TYPES = {"procedure", "plan", "map", "phase", "code", "entry"}
+# an issue's status → the key it needs (task / bug)
+ISSUE_NEED = {("task", "blocked"): "question", ("task", "review"): "question", ("task", "done"): "verified_by",
+              ("bug", "blocked"): "question", ("bug", "fixed"): "fixed_in", ("bug", "verified"): "verified_by",
+              ("bug", "duplicate"): "duplicate_of", ("bug", "wontfix"): "adr"}
+CLAIM_HOURS = 24  # a claim with no commits longer than this is free (the methodology's default — a day)
+SIZE_KB = {"epic": 10, "issue": 8}  # working files grown past this hold what is not theirs
+ADR_ID = re.compile(r"^(ADR-\d{4})\b")
+ISSUE_ID = re.compile(r"^([A-Z][A-Z0-9]*-\d+)\b")
 
 LINK = re.compile(r"!?\[\[([^\]|#\n]*)(?:#([^\]|\n]*?))?(?:\\?\|[^\]\n]*)?\]\]")
 CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`", re.S)
@@ -302,6 +315,30 @@ def _orig_case(vault: Vault, key: str) -> str:
     return vault.files[key].relative_to(vault.root).as_posix()
 
 
+def _cells(line: str) -> int:
+    s = CODE.sub(lambda m: "x" * len(m.group(0)), line.strip())[1:]
+    if s.endswith("|") and not s.endswith("\\|"):
+        s = s[:-1]
+    return len(re.split(r"(?<!\\)\|", s))
+
+
+def _touch_paths(fm: dict) -> list[str]:
+    """Paths among ``touches`` (with a slash or an extension); the rest is a shared resource out of git."""
+    return [p for p in listval(fm.get("touches")) if "/" in p or re.search(r"\.\w{1,5}$", p)]
+
+
+def _exists(root: Path, p: str) -> bool:
+    if _is_glob(p):
+        head = re.split(r"[*?\[]", p, 1)[0].rsplit("/", 1)[0]
+        return (root / head).exists()
+    return (root / p.rstrip("/")).exists()
+
+
+def _overlap(a: str, b: str) -> bool:
+    a, b = a.rstrip("/*").lower(), b.rstrip("/*").lower()
+    return a == b or a.startswith(b + "/") or b.startswith(a + "/")
+
+
 # --- the check --------------------------------------------------------------------------------------------------
 class Checker:
     def __init__(self, vault: Vault, targets: list[Repo], standalone: bool, fix: bool):
@@ -322,11 +359,11 @@ class Checker:
             self.res.known += 1
         self.res.findings.append(f)
 
-    # what there is: decisions, stages, findings, concepts — over the whole vault (numbers are unique per project)
+    # what there is: ADR, epics, issues, concepts — over the whole vault (numbers and keys are unique per project)
     def _index(self) -> None:
         self.decision: dict[str, str] = {}
         self.stage: dict[str, str] = {}
-        self.finding: dict[str, str] = {}
+        self.task: dict[str, str] = {}
         self.concepts: dict[str, dict[str, str]] = {}  # repo name → concept name → key
         self.fm: dict[str, dict] = {}
         for key, (repo, rel) in self.v.docs.items():
@@ -334,25 +371,37 @@ class Checker:
             fm = frontmatter(self.v.text(key)) or {}
             self.fm[key] = fm
             folder = rel.rsplit("/", 1)[0] if "/" in rel else ""
-            if folder in repo.globs("decisions", ["docs/решения", "docs/история/решения"]) and " — " in name:
-                self.decision[name.split(" — ", 1)[0]] = key
-            if folder in repo.globs("findings", ["docs/находки", "docs/история/находки"]) and " — " in name:
-                self.finding[name.split(" — ", 1)[0]] = key
-            st = repo.get("stages", {"dir": "docs/этапы", "name": r"^Этап (\S+?)\. "})
-            if folder == st["dir"]:
-                m = re.match(st["name"], name)
+            if folder in repo.globs("decisions", ["docs/решения", "docs/история/решения"]):
+                m = ADR_ID.match(name)
                 if m:
+                    self.decision[m.group(1)] = key
+            if folder in repo.globs("tasks", ["docs/план/задачи", "docs/история/задачи"]):
+                m = ISSUE_ID.match(name)
+                if m:
+                    self.task[m.group(1)] = key
+            st = repo.get("stages", {"dir": ["docs/план", "docs/история"], "name": r"^Этап (\S+?)\. "})
+            if folder in ([st["dir"]] if isinstance(st["dir"], str) else st["dir"]):
+                m = re.match(st["name"], name)
+                if m and (m.group(1) not in self.stage or fm.get("type") == "epic"):  # an open epic over its history
                     self.stage[m.group(1)] = key
             if folder == repo.get("concepts", "docs/понятия") and not name.startswith("_") and not fm.get("source"):
                 self.concepts.setdefault(repo.name, {})[name] = key
         ids = sorted(self.decision, key=len, reverse=True)
         self.decision_re = re.compile(r"(?<![\w.\-–/])(" + "|".join(map(re.escape, ids)) + r")(?![\w\-–]|\.[\w])") \
             if ids else None
+        tids = sorted(self.task, key=len, reverse=True)
+        self.task_re = re.compile(r"(?<![\w.\-–/])(" + "|".join(map(re.escape, tids)) + r")(?![\w\-–]|\.[\w])") \
+            if tids else None
         sids = sorted(self.stage, key=len, reverse=True)
         self.stage_re = re.compile(r"(?<![\w\[|])([Ээ]тап(?:а|у|ом|е|ы|ов)?) (" + "|".join(map(re.escape, sids)) +
                                    r")(?![\w])(?!\.\d)") if sids else None
         node = [r for r in self.v.repos if r.prefix == ""]
         self.node_name = node[0].name if node else None
+        comps = [c for r in self.v.repos for c in r.globs("components", [])]
+        self.components = set(comps)
+        self.key_re = re.compile(r"(?<![\w\-])((?:" + "|".join(map(re.escape, sorted(comps, key=len, reverse=True))) +
+                                 r")-\d+)(?![\w\-])") if comps else None
+        self.issues: list[tuple[Repo, str, str, dict]] = []  # (repo, rel, key, header) — for claims and touches
 
     def run(self) -> Result:
         # links of every document in the vault count for orphans and embodiment
@@ -368,6 +417,7 @@ class Checker:
             self._repo_level(repo)
             self._code(repo)
             self._extra(repo)
+        self._issues_overall()
         return self.res
 
     def _collect_links(self, key: str) -> None:
@@ -411,6 +461,7 @@ class Checker:
                 self._link(repo, rel, key, target.replace("\\", "").strip(), anchor, header)
         if hist or not fm:
             return
+        self._tables(repo, rel, text, off)
         self._mentions(repo, rel, key, text, body_all, off, raw)
         self._code_refs(repo, rel, body_all)
 
@@ -468,7 +519,7 @@ class Checker:
             self.add(repo, rel, "status", fm["status"], type=t)
         if t == "history" and fm.get("kind") and fm["kind"] not in KINDS:
             self.add(repo, rel, "kind", fm["kind"])
-        if t == "concept" and key in self.concepts.get(repo.name, {}).values() and not self.agent(key):
+        if t == "explanation" and key in self.concepts.get(repo.name, {}).values() and not self.agent(key):
             core = repo.globs("concept_core", ["Суть"])
             if fm.get("tags") and any(x in listval(fm["tags"]) for x in repo.globs("concept_no_core_tags", [])):
                 core = []
@@ -478,28 +529,90 @@ class Checker:
             empty = (not m) or m.group(1).strip().rstrip(".") in ("", "Пусто", "Нет")
             if fm.get("status") in ("open", "done") and (fm["status"] == "done") != empty:
                 self.add(repo, rel, "status_open_" + ("empty" if empty else "full"), fm["status"])
-        if t == "decision" and fm.get("status") == "replaced" and not fm.get("replaced_by"):
-            self.add(repo, rel, "need", "replaced_by", type="decision replaced")
-        if t == "finding":
-            self._finding(repo, rel, fm)
+        if t == "adr":
+            st = fm.get("status")
+            for k in {"accepted": ["deciders"], "superseded": ["superseded_by"]}.get(st, []):
+                if not fm.get(k):
+                    self.add(repo, rel, "need", k, type=f"adr {st}")
+            if not ADR_ID.match(Path(rel).stem):
+                self.add(repo, rel, "adr_name")
+        if t == "issue":
+            self._issue(repo, rel, key, fm)
+        if t in SIZE_KB and len(self.v.text(key).encode("utf-8")) > SIZE_KB[t] * 1024:
+            self.add(repo, rel, "big", t, note=True, kb=len(self.v.text(key).encode("utf-8")) // 1024, limit=SIZE_KB[t])
         self._paths(repo, rel, fm)
 
-    def _finding(self, repo: Repo, rel: str, fm: dict) -> None:
-        st = fm.get("status")
-        areas = repo.get("finding_areas")
-        if areas:
-            area = fm.get("area")
-            if area not in areas:
-                self.add(repo, rel, "area", area or "")
-            elif not Path(rel).stem.startswith(area + "-"):
-                self.add(repo, rel, "area_name", area)
-            if fm.get("severity") not in SEVERITY:
-                self.add(repo, rel, "severity", fm.get("severity") or "")
-        need = {"fixed": "fixed_in", "resolved": "verified_by", "accepted": "decisions"}
-        if st in need and not fm.get(need[st]):
-            self.add(repo, rel, "need", need[st], type=f"finding {st}")
-        if st in ("resolved", "rejected", "accepted") and not matches(rel, repo.globs("history", ["docs/история/**"])):
-            self.add(repo, rel, "finding_closed_place", st)
+    def _issue(self, repo: Repo, rel: str, key: str, fm: dict) -> None:
+        kind, st, comp = fm.get("kind"), fm.get("status"), fm.get("component", "")
+        if kind not in ("task", "bug"):
+            self.add(repo, rel, "issue_kind", kind or "")
+            return
+        if st and st not in (TASK if kind == "task" else BUG):
+            self.add(repo, rel, "status", st, type=f"issue {kind}")
+        if self.components and comp and comp not in self.components:
+            self.add(repo, rel, "component", comp)
+        elif comp and not Path(rel).stem.startswith(comp + "-"):
+            self.add(repo, rel, "component_name", comp)
+        if st == "in-progress":
+            for k in ("assignee", "claimed"):
+                if not fm.get(k):
+                    self.add(repo, rel, "need", k, type=f"issue {st}")
+        need = ISSUE_NEED.get((kind, st))
+        if need and not fm.get(need):
+            self.add(repo, rel, "need", need, type=f"{kind} {st}")
+        if kind == "bug" and fm.get("severity") not in SEVERITY:
+            self.add(repo, rel, "severity", fm.get("severity") or "")
+        hist = matches(rel, repo.globs("history", ["docs/история/**"]))
+        if st in CLOSED and not hist:
+            self.add(repo, rel, "issue_closed_place", st)
+        for d in listval(fm.get("depends")):
+            t = d.strip("[]").split("|")[0].split("#")[0].strip()
+            hit = self.v.pick(self.v.resolve(t), key) if t else []
+            if not hit:
+                self.add(repo, rel, "depends", d)
+            elif self.fm.get(hit[0], {}).get("type") != "issue":
+                self.add(repo, rel, "depends_type", d)
+        for p in _touch_paths(fm):
+            if not _exists(self.v.root, p):
+                self.add(repo, rel, "touches_missing", p)
+        self.issues.append((repo, rel, key, fm))
+
+    def _issues_overall(self) -> None:
+        """Notes the cleanup fixes, not the author of a commit: stale claims, overlapping ``touches``."""
+        now = None
+        live = [(r, rel, k, fm) for r, rel, k, fm in self.issues if fm.get("status") == "in-progress"]
+        for r, rel, k, fm in live:
+            last = _git(self.v.files[k].parent, "log", "-1", "--format=%ct", "--", self.v.files[k].name).strip()
+            if last:
+                now = now or time.time()
+                if now - int(last) > CLAIM_HOURS * 3600:
+                    self.add(r, rel, "claim_stale", fm.get("assignee", ""), note=True, hours=CLAIM_HOURS)
+        for i, (r, rel, k, fm) in enumerate(live):
+            mine = listval(fm.get("touches"))
+            for r2, rel2, k2, fm2 in live[i + 1:]:
+                if any(_overlap(a, b) for a in mine for b in listval(fm2.get("touches"))):
+                    self.add(r, rel, "touches_overlap", Path(rel2).stem, note=True)
+
+    # table rows: as many cells as in the header (a link [[a|b]] in a table without «\|» adds one)
+    def _tables(self, repo: Repo, rel: str, text: str, off: int) -> None:
+        body = re.sub(r"```.*?```|~~~.*?~~~", lambda m: "\n" * m.group(0).count("\n"), text[off:], flags=re.S)
+        lines = body.split("\n")
+        base = text.count("\n", 0, off)
+        want = None
+        for n, line in enumerate(lines):
+            if not line.lstrip().startswith("|"):
+                want = None
+                continue
+            if want is None:
+                nxt = lines[n + 1] if n + 1 < len(lines) else ""
+                if re.match(r"^\s*\|?\s*:?-{3,}", nxt):
+                    want = _cells(line)
+                continue
+            if re.match(r"^\s*\|?\s*:?-{3,}", line):
+                continue
+            got = _cells(line)
+            if got != want:
+                self.add(repo, rel, "table_cells", f"@{base + n + 1}", line=base + n + 1, got=got, want=want)
 
     # paths and verified: masks of the files the document describes, against git
     def _paths_base(self, repo: Repo) -> Path:
@@ -566,6 +679,11 @@ class Checker:
                 k = self.decision[m.group(1)]
                 if k != key and free(*m.span()):
                     out.append((*m.span(), f"[[{self.v.link_to(k, key)}{sep(m.start())}{m.group(0)}]]"))
+        if self.task_re:
+            for m in self.task_re.finditer(body_all):
+                k = self.task[m.group(1)]
+                if k != key and free(*m.span()):
+                    out.append((*m.span(), f"[[{self.v.link_to(k, key)}{sep(m.start())}{m.group(0)}]]"))
         if self.stage_re:
             for m in self.stage_re.finditer(body_all):
                 k = self.stage[m.group(2)]
@@ -585,7 +703,7 @@ class Checker:
         own.update(self.concepts.get(repo.name, {}))
         linked = {t.replace("\\", "").strip().rsplit("/", 1)[-1].lower() for t, _ in LINK.findall(body_all)}
         taken = [(a, b) for a, b, _ in out]
-        if fm.get("type") in repo.globs("concept_mention_types", ["concept", "code", "procedure", "map", "entry"]):
+        if fm.get("type") in repo.globs("concept_mention_types", ["explanation", "code", "how-to", "moc", "entry"]):
             for n in sorted((n for n in own if len(n) >= 4), key=len, reverse=True):
                 if n.lower() in linked or own[n] == key:
                     continue
@@ -657,26 +775,6 @@ class Checker:
                 for k in self.concepts.get(repo.name, {}).values():
                     if k not in on:
                         self.add(repo, mine[k], "not_on_map")
-        # an active decision is embodied: decisions of a concept, a link from a plan, phase, procedure, code document
-        embody: set[str] = set()
-        for k, (r, rel) in self.v.docs.items():
-            if matches(rel, r.globs("history", ["docs/история/**"])):
-                continue
-            fm = self.fm.get(k, {})
-            for d in listval(fm.get("decisions")):
-                hit = self.v.resolve(d.strip("[]").split("|")[0])
-                embody.update(hit)
-            if fm.get("type") in EMBODY_TYPES or matches(rel, r.globs("method", [])):
-                for t, _ in LINK.findall(CODE.sub("", self.v.text(k))):
-                    hit = self.v.pick(self.v.resolve(t.replace("\\", "").strip()), k)
-                    if hit:
-                        embody.add(hit[0])
-        for k, rel in mine.items():
-            fm = self.fm.get(k, {})
-            if fm.get("type") == "decision" and fm.get("status") == "active" and k not in embody \
-                    and not matches(rel, hist):
-                # alone, the node's plan and phases are out of sight: the node's check decides
-                self.add(repo, rel, "decision_idle", note=self.standalone and bool(repo.get("node")))
         # notes: orphans, one name for two documents
         for k, rel in mine.items():
             if matches(rel, hist) or k in self.incoming or Path(rel).name.lower() == "readme.md" \
@@ -704,7 +802,7 @@ class Checker:
         if not ext:
             return
         skip = repo.globs("code_exclude", [])
-        pat = repo.get("code_decision")
+        pat = repo.get("code_decision", r"(?<![\w\-])(ADR-\d{4})(?!\d)")
         dre = re.compile(pat) if pat else None
         for f in self._tracked(repo.root):
             p = repo.root / f
@@ -720,6 +818,10 @@ class Checker:
                         i = m.group(1) if m.groups() else m.group(0)
                         if i not in self.decision:
                             self.add(repo, f, "code_decision", i, line=n, id=i)
+                if self.key_re:
+                    for m in self.key_re.finditer(line):
+                        if m.group(1) not in self.task:
+                            self.add(repo, f, "code_task", m.group(1), line=n, id=m.group(1))
                 for path in DOC_PATH.findall(line):
                     if "<" in path or "*" in path:
                         continue

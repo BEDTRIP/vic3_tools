@@ -222,13 +222,13 @@ class Gen:
         fork = "\n" + self.fork[c] if c in self.fork else ""
         whose = "Термин игры" if self.src == "vanilla" else f"Термин мода {self.label}"
         dsc = f"{whose} «{name}» — подсказка-понятие Victoria 3 {self.version} (`{c}`)".replace('"', "'")
-        return (f'---\ntype: concept\ndescription: "{dsc}"\nproject: vic3\nsource: {self.src}\naliases: [{al}]\n'
+        return (f'---\ntype: explanation\ndescription: "{dsc}"\nproject: vic3\nsource: {self.src}\naliases: [{al}]\n'
                 f'tags: [{self.tag}, термин]\ngenerated: "{self.gen}"\nkey: {c}\n---\n'
                 f"# {name}\n\n{body}\n{fork}")
 
     def mod_index(self):
         rows = sorted(self.own, key=lambda c: self.names[c].lower())
-        out = ["---", "type: map",
+        out = ["---", "type: moc",
                f'description: "Карта терминов мода {self.label} — его подсказки-понятия по алфавиту"',
                "project: vic3", f"source: {self.src}", f"tags: [{self.tag}, термин]", f'generated: "{self.gen}"',
                "---", f"# Термины {self.label}", "",
@@ -239,7 +239,7 @@ class Gen:
 
     def index(self):
         rows = sorted(self.concepts, key=lambda c: self.names[c].lower())
-        out = ["---", "type: map",
+        out = ["---", "type: moc",
                f'description: "Карта терминов игры Victoria 3 {self.version} — все подсказки-понятия по алфавиту"',
                "project: vic3", "source: vanilla", "tags: [ваниль, термин]", f'generated: "{self.gen}"', "---",
                "# Карта ванили", "",

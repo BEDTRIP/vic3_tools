@@ -417,8 +417,9 @@ updating a translation, put the new hash in its first line.
 
 ## Checking a project's documents: `v3 docs check`
 
-For a project whose documents follow the documentation methodology (headers, Obsidian links, concepts, decisions,
-phases, history). One core for every repo; each repo describes its layout in `docs-check.toml` at its root:
+For a project whose documents follow the documentation methodology (headers with Diátaxis kinds and tracker
+statuses, Obsidian links, concepts, ADR, epics and issues, history). One core for every repo; each repo describes its
+layout in `docs-check.toml` at its root:
 
 ```toml
 name = "mymod"
@@ -430,7 +431,8 @@ history = ["docs/история/**"]    # only links and anchors are checked the
 map = "docs/понятия/_Карта.md"   # every concept on it
 code_roots = ["common/", "gui/"] # paths in backticks in docs/ exist (code_roots_in — which documents)
 cover = ["common/**"]            # code that no document's paths covers (cover_strict = true — a failure)
-code_ext = [".txt", ".py"]       # code comments: decision numbers (code_decision — a regex) and paths to documents
+code_ext = [".txt", ".py"]       # code comments: ADR-NNNN (code_decision — another regex), issue keys, paths to documents
+components = ["MOD", "TOOLS"]    # issue keys (the node's): MOD-12 in code and text is an issue that must exist
 extra = ["python tools/my_rule.py"]  # a repo's own rule, run after the core
 ```
 
@@ -443,7 +445,15 @@ that leads out of it is a note. `docs-check-known.txt` beside the config lists f
 A note with `audience: agent` is for the agent only: no orphan or concept-section checks on it, and a link into it
 from the text of a person's document is a finding (`link_to_agent`; in history — a note): put what is needed in
 words, or as a path in `code` — `--fix` leaves such a path as it is. Links in the header (`uses`, `replaces`,
-`decisions`…) are allowed: they give the agent's note its backlinks.
+`adr`…) are allowed: they give the agent's note its backlinks.
+
+Planning lives in `docs/план/`: epics beside its `README.md`, issues in `docs/план/задачи/` named `<KEY-N> — <topic>`
+(closed ones — in `docs/история/задачи/`), ADR in `docs/решения/` named `ADR-NNNN — <question>`. An issue is checked
+for the key of its `component`, the keys its status needs (`assignee` and `claimed` in progress, `question` when
+blocked or in review, `verified_by` when done; a bug's `severity`, `fixed_in`, `duplicate_of`, `adr`), its `depends`
+leading to issues, paths of its `touches`, and a closed one lying in history. Notes, for the cleanup: a claim with no
+commits for a day, two issues in progress with overlapping `touches`, an epic over 10 KB or an issue over 8 KB. A table
+row with more cells than its header (a `[[a|b]]` without `\|`) is a finding.
 
 ## The sources' documentation graph: `v3 graph`
 

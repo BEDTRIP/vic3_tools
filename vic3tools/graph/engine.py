@@ -168,7 +168,7 @@ def notes(raw_dir: Path, src_name: str, version: str, dated: str) -> tuple[dict[
             body += [f"- **{e.name}** — {e.text} ^{block_id(k.prefix, e.name)}" if e.text
                      else f"- **{e.name}** ^{block_id(k.prefix, e.name)}" for e in items]
             out[f"{note}.md"] = "\n".join(fm + body) + "\n"
-    idx = ["---", "type: map",
+    idx = ["---", "type: moc",
            f'description: "Справочник движка Victoria 3 {version} — карта: что в дампе script_docs"',
            "project: vic3", f"source: {src_name}", "tags: [ваниль, движок]", f'generated: "{GEN}"', "---",
            "# Справочник движка", "",
